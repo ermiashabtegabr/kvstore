@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kvstore-deployment
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: kvstore
+  template:
+    metadata:
+      labels:
+        app: kvstore
+    spec:
+      containers:
+      - name: kvstore
+        image: ermiashabtegabr/kvstore:latest
+        ports:
+        - containerPort: 8080
