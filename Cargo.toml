@@ -1,0 +1,48 @@
+[package]
+name = "kvstore"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+# [[bin]]
+# name = "op-server"
+# path = "src/rpc/server.rs"
+
+# [[bin]]
+# name = "op-client"
+# path = "src/rpc/client.rs"
+
+# [[bin]]
+# name = "rest-server"
+# path = "src/rest/server.rs"
+
+# [[bin]]
+# name = "main"
+# path = "src/main.rs"
+
+[dependencies]
+tide = "0.16.0"
+
+async-std = { version = "1.8.0", features = ["attributes"] }
+async-notify = "0.2.0"
+async-trait = "0.1.68"
+async-mutex = "1.4.0"
+
+derivative = "2.2.0"
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+prost = "0.11"
+tonic = "0.8"
+
+crossbeam-channel = "0.5.8"
+crossbeam = "0.8.2"
+
+omnipaxos = { version = "0.1.0", features = ["macros"] }
+omnipaxos_storage = { version = "0.1.0" }
+
+[build-dependencies]
+tonic-build = "0.8"
+
+[features]
+derive_entry = []

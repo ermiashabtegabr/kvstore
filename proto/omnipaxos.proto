@@ -1,0 +1,183 @@
+syntax = "proto3";
+
+package omnipaxos;
+
+message Void {}
+
+// ----------- sequence paxos -----------
+message KeyValue {
+  string key = 1;
+  uint64 value = 2;
+}
+
+message Ballot {
+  uint32 n = 1;
+  uint64 priority = 2;
+  uint64 pid = 3;
+}
+
+message StopSign {
+  uint32 config_id = 1;
+  repeated uint64 nodes = 2;
+  repeated uint32 metadata = 3;
+}
+
+message SequenceNumber {
+  uint64 session = 1;
+  uint64 counter = 2;
+}
+
+message Snapshot {
+  map<string, uint64> snapshot = 1;
+}
+
+message SnapshotType {
+  oneof snapshot {
+    Snapshot complete = 1;
+    Snapshot delta = 2;
+  }
+}
+
+// ----------- paxos messages -----------
+message PrepareReq {
+  uint64 from = 1;
+  uint64 to = 2;
+}
+
+message Prepare {
+  uint64 from = 1;
+  uint64 to = 2;
+  Ballot n = 3;
+  uint64 decided_idx = 4;
+  Ballot n_accepted = 5;
+  uint64 accepted_idx = 6;
+}
+
+message Promise {
+  uint64 from = 1;
+  uint64 to = 2;
+  Ballot n = 3;
+  Ballot n_accepted = 4;
+  optional SnapshotType decided_snapshot = 5;
+  repeated KeyValue suffix = 6;
+  uint64 decided_idx = 7;
+  uint64 accepted_idx = 8;
+  optional StopSign stopsign = 9;
+}
+
+message AcceptSync {
+  uint64 from = 1;
+  uint64 to = 2;
+  Ballot n = 3;
+  SequenceNumber seq_num = 4;
+  optional SnapshotType decided_snapshot = 5;
+  repeated KeyValue suffix = 6;
+  uint64 sync_idx = 7;
+  uint64 decided_idx = 8;
+  optional StopSign stopsign = 9;
+}
+
+message AcceptDecide {
+  uint64 from = 1;
+  uint64 to = 2;
+  Ballot n = 3;
+  SequenceNumber seq_num = 4;
+  uint64 decided_idx = 5;
+  repeated KeyValue entries = 6;
+}
+
+message Accepted {
+  uint64 from = 1;
+  uint64 to = 2;
+  Ballot n = 3;
+  uint64 accepted_idx = 4;
+}
+
+message Decide {
+  uint64 from = 1;
+  uint64 to = 2;
+  Ballot n = 3;
+  SequenceNumber seq_num = 4;
+  uint64 decided_idx = 5;
+}
+
+message ProposalForward {
+  uint64 from = 1;
+  uint64 to = 2;
+  repeated KeyValue proposals = 3;
+}
+
+message Compaction {
+  uint64 from = 1;
+  uint64 to = 2;
+
+  oneof compaction {
+    uint64 trim = 3;
+    uint64 snapshot = 4;
+  }
+}
+
+message AcceptStopSign {
+  uint64 from = 1;
+  uint64 to = 2;
+  Ballot n = 3;
+  //SequenceNumber seq_num = 4;
+  StopSign ss = 4;
+}
+
+message AcceptedStopSign {
+  uint64 from = 1;
+  uint64 to = 2;
+  Ballot n = 3;
+}
+
+message DecideStopSign {
+  uint64 from = 1;
+  uint64 to = 2;
+  Ballot n = 3;
+//  SequenceNumber seq_num = 4;
+}
+
+message ForwardStopSign {
+  uint64 from = 1;
+  uint64 to = 2;
+  StopSign ss = 3;
+}
+
+// ----------- ballot leader election -----------
+message HeartbeatRequest {
+  uint64 from = 1;
+  uint64 to = 2;
+  uint32 round = 3;
+}
+
+message HeartbeatReply {
+  uint64 from = 1;
+  uint64 to = 2;
+  uint32 round = 3;
+  Ballot ballot = 4;
+  bool quorum_connected = 5;
+}
+
+// ----------- server -----------
+service OmniPaxosProtocol {
+  rpc PrepareRequest(PrepareReq) returns (Void);
+  rpc PrepareMessage(Prepare) returns (Void);
+  rpc PromiseMessage(Promise) returns (Void);
+  rpc AcceptSyncMessage(AcceptSync) returns (Void);
+  rpc AcceptDecideMessage(AcceptDecide) returns (Void);
+  rpc AcceptedMessage(Accepted) returns (Void);
+  rpc DecideMessage(Decide) returns (Void);
+
+  rpc ProposalForwardMessage(ProposalForward) returns (Void);
+  rpc CompactionMessage(Compaction) returns (Void);
+
+  rpc AcceptStopSignMessage(AcceptStopSign) returns (Void);
+  rpc AcceptedStopSignMessage(AcceptedStopSign) returns (Void);
+  rpc DecideStopSignMessage(DecideStopSign) returns (Void);
+  rpc ForwardStopSignMessage(ForwardStopSign) returns (Void);
+
+  rpc HeartbeatRequestMessage(HeartbeatRequest) returns (Void);
+  rpc HeartbeatReplyMessage(HeartbeatReply) returns (Void);
+}
+
