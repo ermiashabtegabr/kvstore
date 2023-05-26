@@ -60,6 +60,7 @@ message PrepareReq {
 message Prepare {
   uint64 from = 1;
   uint64 to = 2;
+
   Ballot n = 3;
   uint64 decided_idx = 4;
   Ballot n_accepted = 5;
@@ -69,6 +70,7 @@ message Prepare {
 message Promise {
   uint64 from = 1;
   uint64 to = 2;
+
   Ballot n = 3;
   Ballot n_accepted = 4;
   optional SnapshotType decided_snapshot = 5;
@@ -81,6 +83,7 @@ message Promise {
 message AcceptSync {
   uint64 from = 1;
   uint64 to = 2;
+
   Ballot n = 3;
   SequenceNumber seq_num = 4;
   optional SnapshotType decided_snapshot = 5;
@@ -93,6 +96,7 @@ message AcceptSync {
 message AcceptDecide {
   uint64 from = 1;
   uint64 to = 2;
+
   Ballot n = 3;
   SequenceNumber seq_num = 4;
   uint64 decided_idx = 5;
@@ -102,6 +106,7 @@ message AcceptDecide {
 message Accepted {
   uint64 from = 1;
   uint64 to = 2;
+
   Ballot n = 3;
   uint64 accepted_idx = 4;
 }
@@ -109,6 +114,7 @@ message Accepted {
 message Decide {
   uint64 from = 1;
   uint64 to = 2;
+
   Ballot n = 3;
   SequenceNumber seq_num = 4;
   uint64 decided_idx = 5;
@@ -117,6 +123,7 @@ message Decide {
 message ProposalForward {
   uint64 from = 1;
   uint64 to = 2;
+
   repeated KeyValue proposals = 3;
 }
 
@@ -133,6 +140,7 @@ message Compaction {
 message AcceptStopSign {
   uint64 from = 1;
   uint64 to = 2;
+
   Ballot n = 3;
   //SequenceNumber seq_num = 4;
   StopSign ss = 4;
@@ -141,12 +149,14 @@ message AcceptStopSign {
 message AcceptedStopSign {
   uint64 from = 1;
   uint64 to = 2;
+
   Ballot n = 3;
 }
 
 message DecideStopSign {
   uint64 from = 1;
   uint64 to = 2;
+
   Ballot n = 3;
 //  SequenceNumber seq_num = 4;
 }
@@ -154,6 +164,7 @@ message DecideStopSign {
 message ForwardStopSign {
   uint64 from = 1;
   uint64 to = 2;
+
   StopSign ss = 3;
 }
 
@@ -161,12 +172,14 @@ message ForwardStopSign {
 message HeartbeatRequest {
   uint64 from = 1;
   uint64 to = 2;
+
   uint32 round = 3;
 }
 
 message HeartbeatReply {
   uint64 from = 1;
   uint64 to = 2;
+
   uint32 round = 3;
   Ballot ballot = 4;
   bool quorum_connected = 5;
@@ -186,10 +199,8 @@ service OmniPaxosProtocol {
   rpc AcceptDecideMessage(AcceptDecide) returns (Void);
   rpc AcceptedMessage(Accepted) returns (Void);
   rpc DecideMessage(Decide) returns (Void);
-
   rpc ProposalForwardMessage(ProposalForward) returns (Void);
   rpc CompactionMessage(Compaction) returns (Void);
-
   rpc AcceptStopSignMessage(AcceptStopSign) returns (Void);
   rpc AcceptedStopSignMessage(AcceptedStopSign) returns (Void);
   rpc DecideStopSignMessage(DecideStopSign) returns (Void);
