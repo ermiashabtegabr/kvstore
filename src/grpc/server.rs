@@ -2,7 +2,7 @@ use crate::kvstore::kv::KeyValue;
 use crate::kvstore::server::OmniPaxosServer;
 
 use super::client::OmnipaxosTransport;
-use super::connection::proto;
+use super::omnipaxos_grpc as grpc;
 use super::parse_utils;
 
 use omnipaxos::messages::ballot_leader_election::{
@@ -14,7 +14,7 @@ use omnipaxos::messages::sequence_paxos::{
 };
 use omnipaxos::messages::Message;
 
-use proto::omni_paxos_protocol_server::OmniPaxosProtocol;
+use grpc::omni_paxos_protocol_server::OmniPaxosProtocol;
 use tonic::async_trait;
 use tonic::{Request, Response, Status};
 
@@ -26,7 +26,7 @@ struct OmniPaxosProtocolService<T: OmnipaxosTransport + Send + Sync> {
 impl<T: OmnipaxosTransport + Send + Sync + 'static> OmniPaxosProtocol
     for OmniPaxosProtocolService<T>
 {
-    async fn set_request(&self, req: Request<proto::Set>) -> Result<Response<proto::Void>, Status> {
+    async fn set_request(&self, req: Request<grpc::Set>) -> Result<Response<grpc::Void>, Status> {
         let req = req.into_inner();
         let key = req.key;
         let value = req.value;
@@ -35,45 +35,42 @@ impl<T: OmnipaxosTransport + Send + Sync + 'static> OmniPaxosProtocol
 
         self.omnipaxos_server.handle_set(keyval);
 
-        Ok(Response::new(proto::Void {}))
+        Ok(Response::new(grpc::Void {}))
     }
 
-    async fn get_request(
-        &self,
-        req: Request<proto::Get>,
-    ) -> Result<Response<proto::Result>, Status> {
+    async fn get_request(&self, req: Request<grpc::Get>) -> Result<Response<grpc::Result>, Status> {
         let req = req.into_inner();
         let key = req.key;
 
         let value = self.omnipaxos_server.handle_get(key);
-        let result = proto::Result { value };
+        let result = grpc::Result { value };
 
         Ok(Response::new(result))
     }
 
     async fn prepare_request(
         &self,
-        req: Request<proto::PrepareReq>,
-    ) -> Result<Response<proto::Void>, Status> {
+        req: Request<grpc::PrepareReq>,
+    ) -> Result<Response<grpc::Void>, Status> {
         let req = req.into_inner();
-        let from = req.from as u64;
-        let to = req.to as u64;
+        let from = req.from;
+        let to = req.to;
 
         let msg: PaxosMsg<KeyValue> = PaxosMsg::PrepareReq;
         let paxos_msg = PaxosMessage { from, to, msg };
         let message = Message::SequencePaxos(paxos_msg);
         self.omnipaxos_server.receive_message(message);
 
-        Ok(Response::new(proto::Void {}))
+        Ok(Response::new(grpc::Void {}))
     }
 
     async fn prepare_message(
         &self,
-        req: Request<proto::Prepare>,
-    ) -> Result<Response<proto::Void>, Status> {
+        req: Request<grpc::Prepare>,
+    ) -> Result<Response<grpc::Void>, Status> {
         let req = req.into_inner();
-        let from = req.from as u64;
-        let to = req.to as u64;
+        let from = req.from;
+        let to = req.to;
 
         let n = parse_utils::get_ballot_struct(req.n.unwrap());
         let decided_idx = req.decided_idx;
@@ -91,35 +88,30 @@ impl<T: OmnipaxosTransport + Send + Sync + 'static> OmniPaxosProtocol
         let message = Message::SequencePaxos(paxos_msg);
         self.omnipaxos_server.receive_message(message);
 
-        Ok(Response::new(proto::Void {}))
+        Ok(Response::new(grpc::Void {}))
     }
 
     async fn promise_message(
         &self,
-        req: Request<proto::Promise>,
-    ) -> Result<Response<proto::Void>, Status> {
+        req: Request<grpc::Promise>,
+    ) -> Result<Response<grpc::Void>, Status> {
         let req = req.into_inner();
-        let from = req.from as u64;
-        let to = req.to as u64;
+        let from = req.from;
+        let to = req.to;
 
         let n = parse_utils::get_ballot_struct(req.n.unwrap());
         let n_accepted = parse_utils::get_ballot_struct(req.n_accepted.unwrap());
-        let decided_snapshot = match req.decided_snapshot {
-            Some(decided_snapshot) => Some(parse_utils::get_snapshot_type_enum(decided_snapshot)),
-            _ => None,
-        };
+        let decided_snapshot = req
+            .decided_snapshot
+            .map(parse_utils::get_snapshot_type_enum);
         let suffix: Vec<KeyValue> = req
             .suffix
             .into_iter()
-            .map(|kv| parse_utils::get_keyval_struct(kv))
+            .map(parse_utils::get_keyval_struct)
             .collect();
         let decided_idx = req.decided_idx;
         let accepted_idx = req.accepted_idx;
-        let stopsign = match req.stopsign {
-            Some(stopsign) => Some(parse_utils::get_stopsign_struct(stopsign)),
-            _ => None,
-        };
-
+        let stopsign = req.stopsign.map(parse_utils::get_stopsign_struct);
         let promise = Promise {
             n,
             n_accepted,
@@ -135,35 +127,30 @@ impl<T: OmnipaxosTransport + Send + Sync + 'static> OmniPaxosProtocol
         let message = Message::SequencePaxos(paxos_msg);
         self.omnipaxos_server.receive_message(message);
 
-        Ok(Response::new(proto::Void {}))
+        Ok(Response::new(grpc::Void {}))
     }
 
     async fn accept_sync_message(
         &self,
-        req: Request<proto::AcceptSync>,
-    ) -> Result<Response<proto::Void>, Status> {
+        req: Request<grpc::AcceptSync>,
+    ) -> Result<Response<grpc::Void>, Status> {
         let req = req.into_inner();
-        let from = req.from as u64;
-        let to = req.to as u64;
+        let from = req.from;
+        let to = req.to;
 
         let n = parse_utils::get_ballot_struct(req.n.unwrap());
         let seq_num = parse_utils::get_seq_num_struct(req.seq_num.unwrap());
-        let decided_snapshot = match req.decided_snapshot {
-            Some(decided_snapshot) => Some(parse_utils::get_snapshot_type_enum(decided_snapshot)),
-            _ => None,
-        };
+        let decided_snapshot = req
+            .decided_snapshot
+            .map(parse_utils::get_snapshot_type_enum);
         let suffix: Vec<KeyValue> = req
             .suffix
             .into_iter()
-            .map(|kv| parse_utils::get_keyval_struct(kv))
+            .map(parse_utils::get_keyval_struct)
             .collect();
         let sync_idx = req.sync_idx;
         let decided_idx = req.decided_idx;
-        let stopsign = match req.stopsign {
-            Some(stopsign) => Some(parse_utils::get_stopsign_struct(stopsign)),
-            _ => None,
-        };
-
+        let stopsign = req.stopsign.map(parse_utils::get_stopsign_struct);
         let accept_sync = AcceptSync {
             n,
             seq_num,
@@ -179,16 +166,16 @@ impl<T: OmnipaxosTransport + Send + Sync + 'static> OmniPaxosProtocol
         let message = Message::SequencePaxos(paxos_msg);
         self.omnipaxos_server.receive_message(message);
 
-        Ok(Response::new(proto::Void {}))
+        Ok(Response::new(grpc::Void {}))
     }
 
     async fn accept_decide_message(
         &self,
-        req: Request<proto::AcceptDecide>,
-    ) -> Result<Response<proto::Void>, Status> {
+        req: Request<grpc::AcceptDecide>,
+    ) -> Result<Response<grpc::Void>, Status> {
         let req = req.into_inner();
-        let from = req.from as u64;
-        let to = req.to as u64;
+        let from = req.from;
+        let to = req.to;
 
         let n = parse_utils::get_ballot_struct(req.n.unwrap());
         let seq_num = parse_utils::get_seq_num_struct(req.seq_num.unwrap());
@@ -196,7 +183,7 @@ impl<T: OmnipaxosTransport + Send + Sync + 'static> OmniPaxosProtocol
         let entries: Vec<KeyValue> = req
             .entries
             .into_iter()
-            .map(|kv| parse_utils::get_keyval_struct(kv))
+            .map(parse_utils::get_keyval_struct)
             .collect();
 
         let accept_decide = AcceptDecide {
@@ -211,16 +198,16 @@ impl<T: OmnipaxosTransport + Send + Sync + 'static> OmniPaxosProtocol
         let message = Message::SequencePaxos(paxos_msg);
         self.omnipaxos_server.receive_message(message);
 
-        Ok(Response::new(proto::Void {}))
+        Ok(Response::new(grpc::Void {}))
     }
 
     async fn accepted_message(
         &self,
-        req: Request<proto::Accepted>,
-    ) -> Result<Response<proto::Void>, Status> {
+        req: Request<grpc::Accepted>,
+    ) -> Result<Response<grpc::Void>, Status> {
         let req = req.into_inner();
-        let from = req.from as u64;
-        let to = req.to as u64;
+        let from = req.from;
+        let to = req.to;
 
         let n = parse_utils::get_ballot_struct(req.n.unwrap());
         let accepted_idx = req.accepted_idx;
@@ -231,16 +218,16 @@ impl<T: OmnipaxosTransport + Send + Sync + 'static> OmniPaxosProtocol
         let message = Message::SequencePaxos(paxos_msg);
         self.omnipaxos_server.receive_message(message);
 
-        Ok(Response::new(proto::Void {}))
+        Ok(Response::new(grpc::Void {}))
     }
 
     async fn decide_message(
         &self,
-        req: Request<proto::Decide>,
-    ) -> Result<Response<proto::Void>, Status> {
+        req: Request<grpc::Decide>,
+    ) -> Result<Response<grpc::Void>, Status> {
         let req = req.into_inner();
-        let from = req.from as u64;
-        let to = req.to as u64;
+        let from = req.from;
+        let to = req.to;
 
         let n = parse_utils::get_ballot_struct(req.n.unwrap());
         let seq_num = parse_utils::get_seq_num_struct(req.seq_num.unwrap());
@@ -256,37 +243,37 @@ impl<T: OmnipaxosTransport + Send + Sync + 'static> OmniPaxosProtocol
         let message = Message::SequencePaxos(paxos_msg);
         self.omnipaxos_server.receive_message(message);
 
-        Ok(Response::new(proto::Void {}))
+        Ok(Response::new(grpc::Void {}))
     }
 
     async fn proposal_forward_message(
         &self,
-        req: Request<proto::ProposalForward>,
-    ) -> Result<Response<proto::Void>, Status> {
+        req: Request<grpc::ProposalForward>,
+    ) -> Result<Response<grpc::Void>, Status> {
         let req = req.into_inner();
-        let from = req.from as u64;
-        let to = req.to as u64;
+        let from = req.from;
+        let to = req.to;
 
         let proposals: Vec<KeyValue> = req
             .proposals
             .into_iter()
-            .map(|kv| parse_utils::get_keyval_struct(kv))
+            .map(parse_utils::get_keyval_struct)
             .collect();
         let msg: PaxosMsg<KeyValue> = PaxosMsg::ProposalForward(proposals);
         let paxos_msg = PaxosMessage { from, to, msg };
         let message = Message::SequencePaxos(paxos_msg);
         self.omnipaxos_server.receive_message(message);
 
-        Ok(Response::new(proto::Void {}))
+        Ok(Response::new(grpc::Void {}))
     }
 
     async fn compaction_message(
         &self,
-        req: Request<proto::Compaction>,
-    ) -> Result<Response<proto::Void>, Status> {
+        req: Request<grpc::Compaction>,
+    ) -> Result<Response<grpc::Void>, Status> {
         let req = req.into_inner();
-        let from = req.from as u64;
-        let to = req.to as u64;
+        let from = req.from;
+        let to = req.to;
 
         let compaction = parse_utils::get_compaction_enum(req.compaction.unwrap());
 
@@ -295,16 +282,16 @@ impl<T: OmnipaxosTransport + Send + Sync + 'static> OmniPaxosProtocol
         let message = Message::SequencePaxos(paxos_msg);
         self.omnipaxos_server.receive_message(message);
 
-        Ok(Response::new(proto::Void {}))
+        Ok(Response::new(grpc::Void {}))
     }
 
     async fn accept_stop_sign_message(
         &self,
-        req: Request<proto::AcceptStopSign>,
-    ) -> Result<Response<proto::Void>, Status> {
+        req: Request<grpc::AcceptStopSign>,
+    ) -> Result<Response<grpc::Void>, Status> {
         let req = req.into_inner();
-        let from = req.from as u64;
-        let to = req.to as u64;
+        let from = req.from;
+        let to = req.to;
 
         let n = parse_utils::get_ballot_struct(req.n.unwrap());
         // let seq_num = parse_utils::get_seq_num_struct(req.seq_num.unwrap());
@@ -316,16 +303,16 @@ impl<T: OmnipaxosTransport + Send + Sync + 'static> OmniPaxosProtocol
         let message = Message::SequencePaxos(paxos_msg);
         self.omnipaxos_server.receive_message(message);
 
-        Ok(Response::new(proto::Void {}))
+        Ok(Response::new(grpc::Void {}))
     }
 
     async fn accepted_stop_sign_message(
         &self,
-        req: Request<proto::AcceptedStopSign>,
-    ) -> Result<Response<proto::Void>, Status> {
+        req: Request<grpc::AcceptedStopSign>,
+    ) -> Result<Response<grpc::Void>, Status> {
         let req = req.into_inner();
-        let from = req.from as u64;
-        let to = req.to as u64;
+        let from = req.from;
+        let to = req.to;
 
         let n = parse_utils::get_ballot_struct(req.n.unwrap());
 
@@ -335,16 +322,16 @@ impl<T: OmnipaxosTransport + Send + Sync + 'static> OmniPaxosProtocol
         let message = Message::SequencePaxos(paxos_msg);
         self.omnipaxos_server.receive_message(message);
 
-        Ok(Response::new(proto::Void {}))
+        Ok(Response::new(grpc::Void {}))
     }
 
     async fn decide_stop_sign_message(
         &self,
-        req: Request<proto::DecideStopSign>,
-    ) -> Result<Response<proto::Void>, Status> {
+        req: Request<grpc::DecideStopSign>,
+    ) -> Result<Response<grpc::Void>, Status> {
         let req = req.into_inner();
-        let from = req.from as u64;
-        let to = req.to as u64;
+        let from = req.from;
+        let to = req.to;
 
         let n = parse_utils::get_ballot_struct(req.n.unwrap());
         // let seq_num = parse_utils::get_seq_num_struct(req.seq_num.unwrap());
@@ -355,16 +342,16 @@ impl<T: OmnipaxosTransport + Send + Sync + 'static> OmniPaxosProtocol
         let message = Message::SequencePaxos(paxos_msg);
         self.omnipaxos_server.receive_message(message);
 
-        Ok(Response::new(proto::Void {}))
+        Ok(Response::new(grpc::Void {}))
     }
 
     async fn forward_stop_sign_message(
         &self,
-        req: Request<proto::ForwardStopSign>,
-    ) -> Result<Response<proto::Void>, Status> {
+        req: Request<grpc::ForwardStopSign>,
+    ) -> Result<Response<grpc::Void>, Status> {
         let req = req.into_inner();
-        let from = req.from as u64;
-        let to = req.to as u64;
+        let from = req.from;
+        let to = req.to;
 
         let ss = parse_utils::get_stopsign_struct(req.ss.unwrap());
         let msg: PaxosMsg<KeyValue> = PaxosMsg::ForwardStopSign(ss);
@@ -372,16 +359,16 @@ impl<T: OmnipaxosTransport + Send + Sync + 'static> OmniPaxosProtocol
         let message = Message::SequencePaxos(paxos_msg);
         self.omnipaxos_server.receive_message(message);
 
-        Ok(Response::new(proto::Void {}))
+        Ok(Response::new(grpc::Void {}))
     }
 
     async fn heartbeat_request_message(
         &self,
-        req: Request<proto::HeartbeatRequest>,
-    ) -> Result<Response<proto::Void>, Status> {
+        req: Request<grpc::HeartbeatRequest>,
+    ) -> Result<Response<grpc::Void>, Status> {
         let req = req.into_inner();
-        let from = req.from as u64;
-        let to = req.to as u64;
+        let from = req.from;
+        let to = req.to;
 
         let round = req.round;
 
@@ -391,16 +378,16 @@ impl<T: OmnipaxosTransport + Send + Sync + 'static> OmniPaxosProtocol
         let message = Message::BLE(ble_msg);
         self.omnipaxos_server.receive_message(message);
 
-        Ok(Response::new(proto::Void {}))
+        Ok(Response::new(grpc::Void {}))
     }
 
     async fn heartbeat_reply_message(
         &self,
-        req: Request<proto::HeartbeatReply>,
-    ) -> Result<Response<proto::Void>, Status> {
+        req: Request<grpc::HeartbeatReply>,
+    ) -> Result<Response<grpc::Void>, Status> {
         let req = req.into_inner();
-        let from = req.from as u64;
-        let to = req.to as u64;
+        let from = req.from;
+        let to = req.to;
 
         let round = req.round;
         let ballot = parse_utils::get_ballot_struct(req.ballot.unwrap());
@@ -416,6 +403,6 @@ impl<T: OmnipaxosTransport + Send + Sync + 'static> OmniPaxosProtocol
         let message = Message::BLE(ble_msg);
         self.omnipaxos_server.receive_message(message);
 
-        Ok(Response::new(proto::Void {}))
+        Ok(Response::new(grpc::Void {}))
     }
 }

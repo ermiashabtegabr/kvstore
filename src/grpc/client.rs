@@ -4,7 +4,8 @@ use derivative::Derivative;
 use omnipaxos::messages::ballot_leader_election::{BLEMessage, HeartbeatMsg};
 use omnipaxos::messages::sequence_paxos::{PaxosMessage, PaxosMsg};
 
-use super::connection::{self, Connections};
+use super::connection::Connections;
+use super::omnipaxos_grpc;
 use super::parse_utils;
 use crate::kvstore::kv::KeyValue;
 
@@ -42,7 +43,7 @@ impl OmnipaxosTransport for RpcTransport {
                 let from = paxos_msg.from;
                 let to = paxos_msg.to;
 
-                let request = connection::proto::PrepareReq { from, to };
+                let request = omnipaxos_grpc::PrepareReq { from, to };
 
                 let peer = (self.node_addr)(to as usize);
                 let pool = self.connections.clone();
@@ -66,7 +67,7 @@ impl OmnipaxosTransport for RpcTransport {
                 let n_accepted = parse_utils::get_proto_ballot(prepare.n_accepted);
                 let accepted_idx = prepare.accepted_idx;
 
-                let request = connection::proto::Prepare {
+                let request = omnipaxos_grpc::Prepare {
                     from,
                     to,
                     n,
@@ -99,7 +100,7 @@ impl OmnipaxosTransport for RpcTransport {
                 let suffix = promise
                     .suffix
                     .into_iter()
-                    .map(|kv| parse_utils::get_proto_keyval(kv))
+                    .map(parse_utils::get_proto_keyval)
                     .collect();
                 let decided_idx = promise.decided_idx;
                 let accepted_idx = promise.accepted_idx;
@@ -108,7 +109,7 @@ impl OmnipaxosTransport for RpcTransport {
                     _ => None,
                 };
 
-                let request = connection::proto::Promise {
+                let request = omnipaxos_grpc::Promise {
                     from,
                     to,
                     n,
@@ -141,10 +142,10 @@ impl OmnipaxosTransport for RpcTransport {
                     Some(snapshot_type) => parse_utils::get_proto_snapshot_type(snapshot_type),
                     _ => None,
                 };
-                let suffix: Vec<connection::proto::KeyValue> = accept_sync
+                let suffix: Vec<omnipaxos_grpc::KeyValue> = accept_sync
                     .suffix
                     .into_iter()
-                    .map(|kv| parse_utils::get_proto_keyval(kv))
+                    .map(parse_utils::get_proto_keyval)
                     .collect();
                 let sync_idx = accept_sync.sync_idx;
                 let decided_idx = accept_sync.decided_idx;
@@ -153,7 +154,7 @@ impl OmnipaxosTransport for RpcTransport {
                     _ => None,
                 };
 
-                let request = connection::proto::AcceptSync {
+                let request = omnipaxos_grpc::AcceptSync {
                     from,
                     to,
                     n,
@@ -183,13 +184,13 @@ impl OmnipaxosTransport for RpcTransport {
                 let n = parse_utils::get_proto_ballot(accept_decide.n);
                 let seq_num = parse_utils::get_proto_seq_num(accept_decide.seq_num);
                 let decided_idx = accept_decide.decided_idx;
-                let entries: Vec<connection::proto::KeyValue> = accept_decide
+                let entries: Vec<omnipaxos_grpc::KeyValue> = accept_decide
                     .entries
                     .into_iter()
-                    .map(|kv| parse_utils::get_proto_keyval(kv))
+                    .map(parse_utils::get_proto_keyval)
                     .collect();
 
-                let request = connection::proto::AcceptDecide {
+                let request = omnipaxos_grpc::AcceptDecide {
                     from,
                     to,
                     seq_num: Some(seq_num),
@@ -216,7 +217,7 @@ impl OmnipaxosTransport for RpcTransport {
                 let n = parse_utils::get_proto_ballot(accepted.n);
                 let accepted_idx = accepted.accepted_idx;
 
-                let request = connection::proto::Accepted {
+                let request = omnipaxos_grpc::Accepted {
                     from,
                     to,
                     n,
@@ -242,7 +243,7 @@ impl OmnipaxosTransport for RpcTransport {
                 let seq_num = parse_utils::get_proto_seq_num(decide.seq_num);
                 let decided_idx = decide.decided_idx;
 
-                let request = connection::proto::Decide {
+                let request = omnipaxos_grpc::Decide {
                     from,
                     to,
                     n,
@@ -265,12 +266,12 @@ impl OmnipaxosTransport for RpcTransport {
                 let from = paxos_msg.from;
                 let to = paxos_msg.to;
 
-                let proposals: Vec<connection::proto::KeyValue> = proposals
+                let proposals: Vec<omnipaxos_grpc::KeyValue> = proposals
                     .into_iter()
-                    .map(|kv| parse_utils::get_proto_keyval(kv))
+                    .map(parse_utils::get_proto_keyval)
                     .collect();
 
-                let request = connection::proto::ProposalForward {
+                let request = omnipaxos_grpc::ProposalForward {
                     from,
                     to,
                     proposals,
@@ -291,9 +292,9 @@ impl OmnipaxosTransport for RpcTransport {
                 let from = paxos_msg.from;
                 let to = paxos_msg.to;
 
-                let compaction = parse_utils::get_proto_compaction(compaction);
+                let compaction = parse_utils::get_proto_compaction_type(compaction);
 
-                let request = connection::proto::Compaction {
+                let request = omnipaxos_grpc::Compaction {
                     from,
                     to,
                     compaction: Some(compaction),
@@ -318,7 +319,7 @@ impl OmnipaxosTransport for RpcTransport {
                 // let seq_num = parse_utils::get_proto_seq_num(accept_ss.seq_num);
                 let ss = parse_utils::get_proto_stopsign(accept_ss.ss);
 
-                let request = connection::proto::AcceptStopSign {
+                let request = omnipaxos_grpc::AcceptStopSign {
                     from,
                     to,
                     n,
@@ -343,7 +344,7 @@ impl OmnipaxosTransport for RpcTransport {
 
                 let n = parse_utils::get_proto_ballot(accepted_ss.n);
 
-                let request = connection::proto::AcceptedStopSign { from, to, n };
+                let request = omnipaxos_grpc::AcceptedStopSign { from, to, n };
 
                 let peer = (self.node_addr)(to as usize);
                 let pool = self.connections.clone();
@@ -363,7 +364,7 @@ impl OmnipaxosTransport for RpcTransport {
                 let n = parse_utils::get_proto_ballot(decide_ss.n);
                 // let seq_num = parse_utils ::get_proto_seq_num(decide_ss.seq_num);
 
-                let request = connection::proto::DecideStopSign { from, to, n };
+                let request = omnipaxos_grpc::DecideStopSign { from, to, n };
 
                 let peer = (self.node_addr)(to as usize);
                 let pool = self.connections.clone();
@@ -382,7 +383,7 @@ impl OmnipaxosTransport for RpcTransport {
 
                 let ss = parse_utils::get_proto_stopsign(stopsign);
 
-                let request = connection::proto::ForwardStopSign { from, to, ss };
+                let request = omnipaxos_grpc::ForwardStopSign { from, to, ss };
 
                 let peer = (self.node_addr)(to as usize);
                 let pool = self.connections.clone();
@@ -406,7 +407,7 @@ impl OmnipaxosTransport for RpcTransport {
 
                 let round = heartbeat_request.round;
 
-                let request = connection::proto::HeartbeatRequest { from, to, round };
+                let request = omnipaxos_grpc::HeartbeatRequest { from, to, round };
                 let peer = (self.node_addr)(to as usize);
                 let pool = self.connections.clone();
                 tokio::task::spawn(async move {
@@ -426,7 +427,7 @@ impl OmnipaxosTransport for RpcTransport {
                 let ballot = parse_utils::get_proto_ballot(heartbeat_reply.ballot);
                 let quorum_connected = heartbeat_reply.quorum_connected;
 
-                let request = connection::proto::HeartbeatReply {
+                let request = omnipaxos_grpc::HeartbeatReply {
                     from,
                     to,
                     round,

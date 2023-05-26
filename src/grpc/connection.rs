@@ -1,13 +1,10 @@
-pub mod proto {
-    tonic::include_proto!("omnipaxos");
-}
-
 use async_mutex::Mutex;
 use crossbeam::queue::ArrayQueue;
-use proto::omni_paxos_protocol_client::OmniPaxosProtocolClient;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tonic::transport::Channel;
+
+use super::omnipaxos_grpc::omni_paxos_protocol_client::OmniPaxosProtocolClient;
 
 #[derive(Debug)]
 pub struct ConnectionPool {

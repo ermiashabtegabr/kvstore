@@ -60,7 +60,7 @@ impl<T: OmnipaxosTransport + Send + Sync> OmniPaxosServer<T> {
             // ignore uncommitted entries
         }
 
-        return None;
+        Some(0)
     }
 
     pub async fn send_outgoing_msgs(&self) {

@@ -1,7 +1,7 @@
 mod grpc;
 mod kvstore;
 
-use grpc::connection::proto;
+use grpc::omnipaxos_grpc as omni_grpc;
 use serde::Deserialize;
 use tide::Request;
 
@@ -43,9 +43,9 @@ async fn set_value(mut req: Request<()>) -> tide::Result {
 
 async fn get_value(req: Request<()>) -> tide::Result {
     let get_request: Get = req.query().expect("Failed to parde query");
-    let _get_request_proto = proto::Get {
+    let _get_request_proto = omni_grpc::Get {
         key: get_request.key,
     };
 
-    Ok(format!("huh").into())
+    Ok("huh".to_string().into())
 }
