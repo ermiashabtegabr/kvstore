@@ -4,6 +4,19 @@ package omnipaxos;
 
 message Void {}
 
+message Set {
+  string key = 1;
+  uint64 value = 2;
+}
+
+message Get {
+  string key = 1;
+}
+
+message Result {
+  optional uint64 value = 1;
+}
+
 // ----------- sequence paxos -----------
 message KeyValue {
   string key = 1;
@@ -159,8 +172,13 @@ message HeartbeatReply {
   bool quorum_connected = 5;
 }
 
-// ----------- server -----------
+// ----------- service -----------
 service OmniPaxosProtocol {
+  // ---------- key-value commands ----------
+  rpc SetRequest(Set) returns (Void);
+  rpc GetRequest(Get) returns (Result);
+
+  // ---------- sequence paxos ----------
   rpc PrepareRequest(PrepareReq) returns (Void);
   rpc PrepareMessage(Prepare) returns (Void);
   rpc PromiseMessage(Promise) returns (Void);
@@ -177,6 +195,7 @@ service OmniPaxosProtocol {
   rpc DecideStopSignMessage(DecideStopSign) returns (Void);
   rpc ForwardStopSignMessage(ForwardStopSign) returns (Void);
 
+  // ---------- ballot leader election ----------
   rpc HeartbeatRequestMessage(HeartbeatRequest) returns (Void);
   rpc HeartbeatReplyMessage(HeartbeatReply) returns (Void);
 }
