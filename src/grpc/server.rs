@@ -15,11 +15,18 @@ use omnipaxos::messages::sequence_paxos::{
 use omnipaxos::messages::Message;
 
 use grpc::omni_paxos_protocol_server::OmniPaxosProtocol;
+use std::sync::Arc;
 use tonic::async_trait;
 use tonic::{Request, Response, Status};
 
-struct OmniPaxosProtocolService<T: OmnipaxosTransport + Send + Sync> {
-    omnipaxos_server: OmniPaxosServer<T>,
+pub struct OmniPaxosProtocolService<T: OmnipaxosTransport + Send + Sync> {
+    omnipaxos_server: Arc<OmniPaxosServer<T>>,
+}
+
+impl<T: OmnipaxosTransport + Send + Sync + 'static> OmniPaxosProtocolService<T> {
+    pub fn new(omnipaxos_server: Arc<OmniPaxosServer<T>>) -> Self {
+        OmniPaxosProtocolService { omnipaxos_server }
+    }
 }
 
 #[async_trait()]

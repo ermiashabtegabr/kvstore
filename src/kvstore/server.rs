@@ -1,18 +1,22 @@
 use super::kv::KeyValue;
 use super::util::{ELECTION_TIMEOUT, OUTGOING_MESSAGE_PERIOD};
 use crate::grpc::client::OmnipaxosTransport;
+use crate::logger;
 use omnipaxos::util::LogEntry;
 use omnipaxos::{messages::Message, OmniPaxos, OmniPaxosConfig};
 use omnipaxos_storage::memory_storage::MemoryStorage;
+use slog::{info, Logger};
 use std::sync::{Arc, Mutex};
 use tokio::time;
 
 type OmniPaxosKV<E> = OmniPaxos<E, MemoryStorage<E>>;
 
 pub struct OmniPaxosServer<T: OmnipaxosTransport + Send + Sync> {
+    pid: u64,
     omnipaxos: Arc<Mutex<OmniPaxosKV<KeyValue>>>,
     transport: Arc<T>,
     halt: Arc<Mutex<bool>>,
+    logger: Logger,
 }
 
 impl<T: OmnipaxosTransport + Send + Sync> OmniPaxosServer<T> {
@@ -27,15 +31,19 @@ impl<T: OmnipaxosTransport + Send + Sync> OmniPaxosServer<T> {
         let omnipaxos: Arc<Mutex<OmniPaxosKV<KeyValue>>> =
             Arc::new(Mutex::new(omnipaxos_config.build(MemoryStorage::default())));
         let halt = Arc::new(Mutex::new(false));
+        let logger = logger::create_logger();
 
         Self {
+            pid,
             omnipaxos,
             transport: Arc::new(transport),
             halt,
+            logger,
         }
     }
 
     pub fn handle_set(&self, keyval: KeyValue) {
+        info!(self.logger, "Replica {} received set request", self.pid);
         self.omnipaxos
             .lock()
             .unwrap()
@@ -44,6 +52,7 @@ impl<T: OmnipaxosTransport + Send + Sync> OmniPaxosServer<T> {
     }
 
     pub fn handle_get(&self, key: String) -> Option<u64> {
+        info!(self.logger, "Replica {} received get request", self.pid);
         let committed_entries = self
             .omnipaxos
             .lock()
@@ -57,7 +66,6 @@ impl<T: OmnipaxosTransport + Send + Sync> OmniPaxosServer<T> {
                     return Some(kv.value);
                 }
             }
-            // ignore uncommitted entries
         }
 
         Some(0)
@@ -76,6 +84,7 @@ impl<T: OmnipaxosTransport + Send + Sync> OmniPaxosServer<T> {
     }
 
     pub async fn start_message_event_loop(&self) {
+        info!(self.logger, "Replica {} starting event loop", self.pid);
         let mut outgoing_interval = time::interval(OUTGOING_MESSAGE_PERIOD);
         let mut election_interval = time::interval(ELECTION_TIMEOUT);
         loop {
@@ -89,10 +98,12 @@ impl<T: OmnipaxosTransport + Send + Sync> OmniPaxosServer<T> {
     }
 
     pub fn receive_message(&self, message: Message<KeyValue>) {
+        info!(self.logger, "Replica {} received message", self.pid);
         self.omnipaxos.lock().unwrap().handle_incoming(message)
     }
 
-    pub fn halt(&self, val: bool) {
+    pub fn _halt(&self, val: bool) {
+        info!(self.logger, "Replica {} halting", self.pid);
         let mut halt = self.halt.lock().unwrap();
         *halt = val
     }

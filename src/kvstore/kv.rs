@@ -21,6 +21,7 @@ impl KVSnapshot {
     pub fn with(snapshotted: HashMap<String, u64>) -> Self {
         KVSnapshot { snapshotted }
     }
+
     pub fn get_snapshot(&self) -> HashMap<String, u64> {
         self.snapshotted.clone()
     }

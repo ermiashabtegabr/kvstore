@@ -33,7 +33,9 @@ impl ConnectionPool {
         let addr = addr.to_string();
         match self.connections.pop() {
             Some(x) => x,
-            None => OmniPaxosProtocolClient::connect(addr).await.unwrap(),
+            None => OmniPaxosProtocolClient::connect(addr)
+                .await
+                .expect("Failed to connect"),
         }
     }
 
