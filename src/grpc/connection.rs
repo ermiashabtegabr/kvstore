@@ -62,6 +62,7 @@ impl Connections {
         let pool = conns
             .entry(addr.clone())
             .or_insert_with(ConnectionPool::new);
+
         Connection {
             conn: pool.connection(addr).await,
             pool: pool.clone(),

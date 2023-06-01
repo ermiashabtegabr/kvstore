@@ -80,7 +80,7 @@ impl OmnipaxosTransport for RpcTransport {
                 let pool = self.connections.clone();
                 tokio::task::spawn(async move {
                     let mut client = pool.connection(peer).await;
-                    let request = tonic::Request::new(request.clone());
+                    let request = tonic::Request::new(request);
                     match client.conn.prepare_message(request).await {
                         Ok(_) => {}
                         Err(_) => println!("Peer {} halted", to),
@@ -125,7 +125,7 @@ impl OmnipaxosTransport for RpcTransport {
                 let pool = self.connections.clone();
                 tokio::task::spawn(async move {
                     let mut client = pool.connection(peer).await;
-                    let request = tonic::Request::new(request.clone());
+                    let request = tonic::Request::new(request);
                     match client.conn.promise_message(request).await {
                         Ok(_) => {}
                         Err(_) => println!("Peer {} halted", to),
@@ -170,7 +170,7 @@ impl OmnipaxosTransport for RpcTransport {
                 let pool = self.connections.clone();
                 tokio::task::spawn(async move {
                     let mut client = pool.connection(peer).await;
-                    let request = tonic::Request::new(request.clone());
+                    let request = tonic::Request::new(request);
                     match client.conn.accept_sync_message(request).await {
                         Ok(_) => {}
                         Err(_) => println!("Peer {} halted", to),
@@ -203,7 +203,7 @@ impl OmnipaxosTransport for RpcTransport {
                 let pool = self.connections.clone();
                 tokio::task::spawn(async move {
                     let mut client = pool.connection(peer).await;
-                    let request = tonic::Request::new(request.clone());
+                    let request = tonic::Request::new(request);
                     match client.conn.accept_decide_message(request).await {
                         Ok(_) => {}
                         Err(_) => println!("Peer {} halted", to),
@@ -228,7 +228,7 @@ impl OmnipaxosTransport for RpcTransport {
                 let pool = self.connections.clone();
                 tokio::task::spawn(async move {
                     let mut client = pool.connection(peer).await;
-                    let request = tonic::Request::new(request.clone());
+                    let request = tonic::Request::new(request);
                     match client.conn.accepted_message(request).await {
                         Ok(_) => {}
                         Err(_) => println!("Peer {} halted", to),
@@ -255,7 +255,7 @@ impl OmnipaxosTransport for RpcTransport {
                 let pool = self.connections.clone();
                 tokio::task::spawn(async move {
                     let mut client = pool.connection(peer).await;
-                    let request = tonic::Request::new(request.clone());
+                    let request = tonic::Request::new(request);
                     match client.conn.decide_message(request).await {
                         Ok(_) => {}
                         Err(_) => println!("Peer {} halted", to),
@@ -281,7 +281,7 @@ impl OmnipaxosTransport for RpcTransport {
                 let pool = self.connections.clone();
                 tokio::task::spawn(async move {
                     let mut client = pool.connection(peer).await;
-                    let request = tonic::Request::new(request.clone());
+                    let request = tonic::Request::new(request);
                     match client.conn.proposal_forward_message(request).await {
                         Ok(_) => {}
                         Err(_) => println!("Peer {} halted", to),
@@ -304,7 +304,7 @@ impl OmnipaxosTransport for RpcTransport {
                 let pool = self.connections.clone();
                 tokio::task::spawn(async move {
                     let mut client = pool.connection(peer).await;
-                    let request = tonic::Request::new(request.clone());
+                    let request = tonic::Request::new(request);
                     match client.conn.compaction_message(request).await {
                         Ok(_) => {}
                         Err(_) => println!("Peer {} halted", to),
@@ -331,7 +331,7 @@ impl OmnipaxosTransport for RpcTransport {
                 let pool = self.connections.clone();
                 tokio::task::spawn(async move {
                     let mut client = pool.connection(peer).await;
-                    let request = tonic::Request::new(request.clone());
+                    let request = tonic::Request::new(request);
                     match client.conn.accept_stop_sign_message(request).await {
                         Ok(_) => {}
                         Err(_) => println!("Peer {} halted", to),
@@ -350,7 +350,7 @@ impl OmnipaxosTransport for RpcTransport {
                 let pool = self.connections.clone();
                 tokio::task::spawn(async move {
                     let mut client = pool.connection(peer).await;
-                    let request = tonic::Request::new(request.clone());
+                    let request = tonic::Request::new(request);
                     match client.conn.accepted_stop_sign_message(request).await {
                         Ok(_) => {}
                         Err(_) => println!("Peer {} halted", to),
@@ -370,7 +370,7 @@ impl OmnipaxosTransport for RpcTransport {
                 let pool = self.connections.clone();
                 tokio::task::spawn(async move {
                     let mut client = pool.connection(peer).await;
-                    let request = tonic::Request::new(request.clone());
+                    let request = tonic::Request::new(request);
                     match client.conn.decide_stop_sign_message(request).await {
                         Ok(_) => {}
                         Err(_) => println!("Peer {} halted", to),
@@ -389,7 +389,7 @@ impl OmnipaxosTransport for RpcTransport {
                 let pool = self.connections.clone();
                 tokio::task::spawn(async move {
                     let mut client = pool.connection(peer).await;
-                    let request = tonic::Request::new(request.clone());
+                    let request = tonic::Request::new(request);
                     match client.conn.forward_stop_sign_message(request).await {
                         Ok(_) => {}
                         Err(_) => println!("Peer {} halted", to),
@@ -412,7 +412,7 @@ impl OmnipaxosTransport for RpcTransport {
                 let pool = self.connections.clone();
                 tokio::task::spawn(async move {
                     let mut client = pool.connection(peer).await;
-                    let request = tonic::Request::new(request.clone());
+                    let request = tonic::Request::new(request);
                     match client.conn.heartbeat_request_message(request).await {
                         Ok(_) => {}
                         Err(_) => println!("Peer {} halted", to),
@@ -438,7 +438,7 @@ impl OmnipaxosTransport for RpcTransport {
                 let pool = self.connections.clone();
                 tokio::task::spawn(async move {
                     let mut client = pool.connection(peer).await;
-                    let request = tonic::Request::new(request.clone());
+                    let request = tonic::Request::new(request);
                     match client.conn.heartbeat_reply_message(request).await {
                         Ok(_) => {}
                         Err(_) => println!("Peer {} halted", to),

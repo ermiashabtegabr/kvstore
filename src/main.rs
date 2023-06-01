@@ -50,13 +50,8 @@ fn node_rpc_addr(id: usize) -> String {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let opt = Opt::from_args();
-    let peers = opt
-        .peers
-        .clone()
-        .iter_mut()
-        .map(|peer| *peer as u64)
-        .collect();
+    let mut opt = Opt::from_args();
+    let peers = opt.peers.iter_mut().map(|peer| *peer as u64).collect();
     let (host, port) = node_authority(opt.id);
     let rpc_listen_addr = format!("{}:{}", host, port).parse().unwrap();
     let transport = RpcTransport::new(Box::new(node_rpc_addr));
