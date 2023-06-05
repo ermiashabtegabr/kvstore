@@ -16,6 +16,8 @@ crossbeam-channel = "0.5.8"
 
 derivative = "2.2.0"
 
+femme = "2.2.1"
+
 slog = "2.7.0"
 slog-term = "2.9.0"
 slog-async = "2.7.0"

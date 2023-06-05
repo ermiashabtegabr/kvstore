@@ -49,7 +49,7 @@ impl<T: OmnipaxosTransport + Send + Sync + 'static> OmniPaxosProtocol
         let req = req.into_inner();
         let key = req.key;
 
-        let value = self.omnipaxos_server.handle_get(key);
+        let value = self.omnipaxos_server.handle_get(&key);
         let result = grpc::Result { value };
 
         Ok(Response::new(result))

@@ -43,7 +43,10 @@ impl<T: OmnipaxosTransport + Send + Sync> OmniPaxosServer<T> {
     }
 
     pub fn handle_set(&self, keyval: KeyValue) {
-        info!(self.logger, "Replica {} received set request", self.pid);
+        info!(
+            self.logger,
+            "\n\n Replica {} received set request \n\n", self.pid
+        );
         self.omnipaxos
             .lock()
             .unwrap()
@@ -51,7 +54,7 @@ impl<T: OmnipaxosTransport + Send + Sync> OmniPaxosServer<T> {
             .expect("Failed to append");
     }
 
-    pub fn handle_get(&self, key: String) -> Option<u64> {
+    pub fn handle_get(&self, key: &String) -> Option<u64> {
         info!(self.logger, "Replica {} received get request", self.pid);
         let committed_entries = self
             .omnipaxos
@@ -62,7 +65,7 @@ impl<T: OmnipaxosTransport + Send + Sync> OmniPaxosServer<T> {
 
         for ent in committed_entries {
             if let LogEntry::Decided(kv) = ent {
-                if kv.key == key {
+                if kv.key == *key {
                     return Some(kv.value);
                 }
             }

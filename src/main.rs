@@ -3,9 +3,10 @@ mod kvstore;
 mod logger;
 
 use anyhow::Result;
-use grpc::client::RpcTransport;
-use grpc::omnipaxos_grpc::{self, omni_paxos_protocol_server::OmniPaxosProtocolServer};
+use grpc::client::{OmnipaxosTransport, RpcTransport};
+use grpc::omnipaxos_grpc::omni_paxos_protocol_server::OmniPaxosProtocolServer;
 use grpc::server::OmniPaxosProtocolService;
+use kvstore::kv::KeyValue;
 use kvstore::server::OmniPaxosServer;
 use serde::Deserialize;
 use std::sync::Arc;
@@ -16,23 +17,15 @@ use tonic::transport::Server;
 #[derive(StructOpt, Debug)]
 #[structopt(name = "kvstore")]
 struct Opt {
-    /// The ID of this server.
     #[structopt(short, long)]
     id: usize,
-    /// The IDs of peers.
     #[structopt(short, long, required = false)]
     peers: Vec<usize>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
-struct Get {
-    key: String,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-struct Set {
-    key: String,
-    value: u64,
+struct Key {
+    pub key: String,
 }
 
 fn node_authority(id: usize) -> (&'static str, u16) {
@@ -55,26 +48,33 @@ async fn main() -> Result<()> {
     let (host, port) = node_authority(opt.id);
     let rpc_listen_addr = format!("{}:{}", host, port).parse().unwrap();
     let transport = RpcTransport::new(Box::new(node_rpc_addr));
-    let server = OmniPaxosServer::new(opt.id as u64, peers, transport);
-    let server = Arc::new(server);
+    let omnipaxos_server = OmniPaxosServer::new(opt.id as u64, peers, transport);
+    let omnipaxos_server = Arc::new(omnipaxos_server);
 
-    let http_server = tokio::task::spawn(async move {
-        if opt.id != 1 {
-            return;
-        }
-        start_http_server()
-            .await
-            .expect("Failed to start http server");
-    });
+    if opt.id == 1 {
+        let omnipaxos_server = omnipaxos_server.clone();
+        tokio::task::spawn(async move {
+            femme::start();
+            let mut http_server = tide::with_state(omnipaxos_server);
+            http_server.with(tide::log::LogMiddleware::new());
+            http_server.at("/").get(|_| async { Ok("PING") });
+            http_server.at("/set").post(set_value);
+            http_server.at("/get").get(get_value);
+            http_server
+                .listen("127.0.0.1:8080")
+                .await
+                .expect("Failed to set listener");
+        });
+    }
 
     let event_loop = {
-        let server = server.clone();
+        let omnipaxos_server = omnipaxos_server.clone();
         tokio::task::spawn(async move {
-            server.start_message_event_loop().await;
+            omnipaxos_server.start_message_event_loop().await;
         })
     };
 
-    let rpc = OmniPaxosProtocolService::new(server);
+    let rpc = OmniPaxosProtocolService::new(omnipaxos_server);
     let grpc_server = tokio::task::spawn(async move {
         println!("RPC listening to {} ...", rpc_listen_addr);
         let ret = Server::builder()
@@ -84,34 +84,30 @@ async fn main() -> Result<()> {
         ret
     });
 
-    let _results = tokio::try_join!(http_server, grpc_server, event_loop)?;
+    let _results = tokio::try_join!(grpc_server, event_loop)?;
 
     Ok(())
 }
 
-async fn start_http_server() -> tide::Result<()> {
-    println!("[INFO] listening on 0.0.0.0:8080");
+type State<T> = Arc<OmniPaxosServer<T>>;
 
-    let mut server = tide::new();
-    server.at("/").get(|_| async { Ok("PING") });
-    server.at("/set").post(set_value);
-    server.at("/get").get(get_value);
-    server.listen("0.0.0.0:8080").await?;
-
-    Ok(())
+async fn set_value<T>(mut req: Request<State<T>>) -> tide::Result
+where
+    T: OmnipaxosTransport + Send + Sync,
+{
+    let keyval: KeyValue = req.body_json().await.expect("Failed to parse request body");
+    let omnipaxos_server = req.state();
+    omnipaxos_server.handle_set(keyval);
+    Ok(tide::Response::new(200))
 }
 
-async fn set_value(mut req: Request<()>) -> tide::Result {
-    let Set { key, value } = req.body_json().await?;
-    println!("{}:{}", key, value);
-    Ok(format!("{} -> {}", key, value).into())
-}
+async fn get_value<T>(req: Request<State<T>>) -> tide::Result<String>
+where
+    T: OmnipaxosTransport + Send + Sync,
+{
+    let key: Key = req.query()?;
+    let omnipaxos_server = req.state();
+    let value = omnipaxos_server.handle_get(&key.key).unwrap();
 
-async fn get_value(req: Request<()>) -> tide::Result {
-    let get_request: Get = req.query().expect("Failed to parde query");
-    let _get_request_proto = omnipaxos_grpc::Get {
-        key: get_request.key,
-    };
-
-    Ok("huh".to_string().into())
+    Ok(format!("[{}] -> [{}]", key.key, value))
 }
