@@ -74,11 +74,11 @@ async fn main() -> Result<()> {
         })
     };
 
-    let rpc = OmniPaxosProtocolService::new(omnipaxos_server);
+    let grpc = OmniPaxosProtocolService::new(omnipaxos_server);
     let grpc_server = tokio::task::spawn(async move {
         println!("RPC listening to {} ...", rpc_listen_addr);
         let ret = Server::builder()
-            .add_service(OmniPaxosProtocolServer::new(rpc))
+            .add_service(OmniPaxosProtocolServer::new(grpc))
             .serve(rpc_listen_addr)
             .await;
         ret
