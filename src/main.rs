@@ -29,7 +29,7 @@ struct Key {
 }
 
 fn node_authority(id: usize) -> (&'static str, u16) {
-    let host = "127.0.0.1";
+    let host = "0.0.0.0";
     let port = 50000 + (id as u16);
     (host, port)
 }
@@ -61,7 +61,7 @@ async fn main() -> Result<()> {
             http_server.at("/set").post(set_value);
             http_server.at("/get").get(get_value);
             http_server
-                .listen("127.0.0.1:8080")
+                .listen("0.0.0.0:8080")
                 .await
                 .expect("Failed to set listener");
         });

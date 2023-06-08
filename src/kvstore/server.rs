@@ -2,20 +2,22 @@ use super::kv::KeyValue;
 use super::util::{ELECTION_TIMEOUT, OUTGOING_MESSAGE_PERIOD};
 use crate::grpc::client::OmnipaxosTransport;
 use crate::logger;
+
+use commitlog::LogOptions;
 use omnipaxos::util::LogEntry;
 use omnipaxos::{messages::Message, OmniPaxos, OmniPaxosConfig};
-use omnipaxos_storage::memory_storage::MemoryStorage;
+use omnipaxos_storage::persistent_storage::{PersistentStorage, PersistentStorageConfig};
+use sled::Config;
 use slog::{info, Logger};
 use std::sync::{Arc, Mutex};
 use tokio::time;
 
-type OmniPaxosKV<E> = OmniPaxos<E, MemoryStorage<E>>;
+type OmniPaxosKV<E> = OmniPaxos<E, PersistentStorage<E>>;
 
 pub struct OmniPaxosServer<T: OmnipaxosTransport + Send + Sync> {
     pid: u64,
     omnipaxos: Arc<Mutex<OmniPaxosKV<KeyValue>>>,
     transport: Arc<T>,
-    halt: Arc<Mutex<bool>>,
     logger: Logger,
 }
 
@@ -28,25 +30,30 @@ impl<T: OmnipaxosTransport + Send + Sync> OmniPaxosServer<T> {
             peers,
             ..Default::default()
         };
-        let omnipaxos: Arc<Mutex<OmniPaxosKV<KeyValue>>> =
-            Arc::new(Mutex::new(omnipaxos_config.build(MemoryStorage::default())));
-        let halt = Arc::new(Mutex::new(false));
+
+        let my_path = format!("./storage/node-{}", pid);
+        let my_log_opts = LogOptions::new(my_path.clone());
+        let my_sled_opts = Config::default().path(my_path.clone());
+
+        let mut my_config = PersistentStorageConfig::default();
+        my_config.set_path(my_path);
+        my_config.set_commitlog_options(my_log_opts);
+        my_config.set_database_options(my_sled_opts);
+
+        let omnipaxos = Mutex::new(omnipaxos_config.build(PersistentStorage::open(my_config)));
+        let omnipaxos = Arc::new(omnipaxos);
         let logger = logger::create_logger();
 
         Self {
             pid,
             omnipaxos,
             transport: Arc::new(transport),
-            halt,
             logger,
         }
     }
 
     pub fn handle_set(&self, keyval: KeyValue) {
-        info!(
-            self.logger,
-            "\n\n Replica {} received set request \n\n", self.pid
-        );
+        info!(self.logger, "Replica {} received set request", self.pid);
         self.omnipaxos
             .lock()
             .unwrap()
@@ -103,11 +110,5 @@ impl<T: OmnipaxosTransport + Send + Sync> OmniPaxosServer<T> {
     pub fn receive_message(&self, message: Message<KeyValue>) {
         info!(self.logger, "Replica {} received message", self.pid);
         self.omnipaxos.lock().unwrap().handle_incoming(message)
-    }
-
-    pub fn _halt(&self, val: bool) {
-        info!(self.logger, "Replica {} halting", self.pid);
-        let mut halt = self.halt.lock().unwrap();
-        *halt = val
     }
 }

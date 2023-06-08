@@ -1,9 +1,10 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: Statefulset
 metadata:
-  name: kvstore-deployment
+  namespace: kvstore-k8s
+  name: kvstore-statefulset
 spec:
-  replicas: 2
+  replicas: 3
   selector:
     matchLabels:
       app: kvstore
