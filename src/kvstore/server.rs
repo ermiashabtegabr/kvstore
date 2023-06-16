@@ -40,8 +40,9 @@ impl<T: OmnipaxosTransport + Send + Sync> OmniPaxosServer<T> {
         my_config.set_commitlog_options(my_log_opts);
         my_config.set_database_options(my_sled_opts);
 
-        let omnipaxos = Mutex::new(omnipaxos_config.build(PersistentStorage::open(my_config)));
-        let omnipaxos = Arc::new(omnipaxos);
+        let omnipaxos: Arc<Mutex<OmniPaxosKV<KeyValue>>> = Arc::new(Mutex::new(
+            omnipaxos_config.build(PersistentStorage::open(my_config)),
+        ));
         let logger = logger::create_logger();
 
         Self {

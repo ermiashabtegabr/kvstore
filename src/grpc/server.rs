@@ -1,5 +1,6 @@
 use crate::kvstore::kv::KeyValue;
 use crate::kvstore::server::OmniPaxosServer;
+use crate::logger;
 
 use super::client::OmnipaxosTransport;
 use super::omnipaxos_grpc as grpc;
@@ -15,17 +16,22 @@ use omnipaxos::messages::sequence_paxos::{
 use omnipaxos::messages::Message;
 
 use grpc::omni_paxos_protocol_server::OmniPaxosProtocol;
+use slog::{debug, Logger};
 use std::sync::Arc;
 use tonic::async_trait;
 use tonic::{Request, Response, Status};
 
 pub struct OmniPaxosProtocolService<T: OmnipaxosTransport + Send + Sync> {
     omnipaxos_server: Arc<OmniPaxosServer<T>>,
+    logger: Logger,
 }
 
 impl<T: OmnipaxosTransport + Send + Sync + 'static> OmniPaxosProtocolService<T> {
     pub fn new(omnipaxos_server: Arc<OmniPaxosServer<T>>) -> Self {
-        OmniPaxosProtocolService { omnipaxos_server }
+        OmniPaxosProtocolService {
+            omnipaxos_server,
+            logger: logger::create_logger(),
+        }
     }
 }
 
@@ -34,6 +40,7 @@ impl<T: OmnipaxosTransport + Send + Sync + 'static> OmniPaxosProtocol
     for OmniPaxosProtocolService<T>
 {
     async fn set_request(&self, req: Request<grpc::Set>) -> Result<Response<grpc::Void>, Status> {
+        debug!(self.logger, "Received set request message");
         let req = req.into_inner();
         let key = req.key;
         let value = req.value;
@@ -46,6 +53,7 @@ impl<T: OmnipaxosTransport + Send + Sync + 'static> OmniPaxosProtocol
     }
 
     async fn get_request(&self, req: Request<grpc::Get>) -> Result<Response<grpc::Result>, Status> {
+        debug!(self.logger, "Received get request message");
         let req = req.into_inner();
         let key = req.key;
 
@@ -63,6 +71,11 @@ impl<T: OmnipaxosTransport + Send + Sync + 'static> OmniPaxosProtocol
         let from = req.from;
         let to = req.to;
 
+        debug!(
+            self.logger,
+            "Received prepare request message from {}", from
+        );
+
         let msg: PaxosMsg<KeyValue> = PaxosMsg::PrepareReq;
         let paxos_msg = PaxosMessage { from, to, msg };
         let message = Message::SequencePaxos(paxos_msg);
@@ -78,6 +91,8 @@ impl<T: OmnipaxosTransport + Send + Sync + 'static> OmniPaxosProtocol
         let req = req.into_inner();
         let from = req.from;
         let to = req.to;
+
+        debug!(self.logger, "Received prepare message from {}", from);
 
         let n = parse_utils::get_ballot_struct(req.n.unwrap());
         let decided_idx = req.decided_idx;
@@ -105,6 +120,8 @@ impl<T: OmnipaxosTransport + Send + Sync + 'static> OmniPaxosProtocol
         let req = req.into_inner();
         let from = req.from;
         let to = req.to;
+
+        debug!(self.logger, "Received promise message from {}", from);
 
         let n = parse_utils::get_ballot_struct(req.n.unwrap());
         let n_accepted = parse_utils::get_ballot_struct(req.n_accepted.unwrap());
@@ -145,6 +162,8 @@ impl<T: OmnipaxosTransport + Send + Sync + 'static> OmniPaxosProtocol
         let from = req.from;
         let to = req.to;
 
+        debug!(self.logger, "Received accept sync message from {}", from);
+
         let n = parse_utils::get_ballot_struct(req.n.unwrap());
         let seq_num = parse_utils::get_seq_num_struct(req.seq_num.unwrap());
         let decided_snapshot = req
@@ -184,6 +203,8 @@ impl<T: OmnipaxosTransport + Send + Sync + 'static> OmniPaxosProtocol
         let from = req.from;
         let to = req.to;
 
+        debug!(self.logger, "Received accept decide message from {}", from);
+
         let n = parse_utils::get_ballot_struct(req.n.unwrap());
         let seq_num = parse_utils::get_seq_num_struct(req.seq_num.unwrap());
         let decided_idx = req.decided_idx;
@@ -216,6 +237,8 @@ impl<T: OmnipaxosTransport + Send + Sync + 'static> OmniPaxosProtocol
         let from = req.from;
         let to = req.to;
 
+        debug!(self.logger, "Received accepted message from {}", from);
+
         let n = parse_utils::get_ballot_struct(req.n.unwrap());
         let accepted_idx = req.accepted_idx;
 
@@ -235,6 +258,8 @@ impl<T: OmnipaxosTransport + Send + Sync + 'static> OmniPaxosProtocol
         let req = req.into_inner();
         let from = req.from;
         let to = req.to;
+
+        debug!(self.logger, "Received decide message from {}", from);
 
         let n = parse_utils::get_ballot_struct(req.n.unwrap());
         let seq_num = parse_utils::get_seq_num_struct(req.seq_num.unwrap());
@@ -261,6 +286,11 @@ impl<T: OmnipaxosTransport + Send + Sync + 'static> OmniPaxosProtocol
         let from = req.from;
         let to = req.to;
 
+        debug!(
+            self.logger,
+            "Received proposal forward message from {}", from
+        );
+
         let proposals: Vec<KeyValue> = req
             .proposals
             .into_iter()
@@ -282,6 +312,8 @@ impl<T: OmnipaxosTransport + Send + Sync + 'static> OmniPaxosProtocol
         let from = req.from;
         let to = req.to;
 
+        debug!(self.logger, "Received compaction message from {}", from);
+
         let compaction = parse_utils::get_compaction_enum(req.compaction.unwrap());
 
         let msg: PaxosMsg<KeyValue> = PaxosMsg::Compaction(compaction);
@@ -299,6 +331,11 @@ impl<T: OmnipaxosTransport + Send + Sync + 'static> OmniPaxosProtocol
         let req = req.into_inner();
         let from = req.from;
         let to = req.to;
+
+        debug!(
+            self.logger,
+            "Received accept stop sign message from {}", from
+        );
 
         let n = parse_utils::get_ballot_struct(req.n.unwrap());
         // let seq_num = parse_utils::get_seq_num_struct(req.seq_num.unwrap());
@@ -321,6 +358,11 @@ impl<T: OmnipaxosTransport + Send + Sync + 'static> OmniPaxosProtocol
         let from = req.from;
         let to = req.to;
 
+        debug!(
+            self.logger,
+            "Received accepted stop sign message from {}", from
+        );
+
         let n = parse_utils::get_ballot_struct(req.n.unwrap());
 
         let accepted_stop_sign = AcceptedStopSign { n };
@@ -339,6 +381,11 @@ impl<T: OmnipaxosTransport + Send + Sync + 'static> OmniPaxosProtocol
         let req = req.into_inner();
         let from = req.from;
         let to = req.to;
+
+        debug!(
+            self.logger,
+            "Received decide stop sign message from {}", from
+        );
 
         let n = parse_utils::get_ballot_struct(req.n.unwrap());
         // let seq_num = parse_utils::get_seq_num_struct(req.seq_num.unwrap());
@@ -360,6 +407,11 @@ impl<T: OmnipaxosTransport + Send + Sync + 'static> OmniPaxosProtocol
         let from = req.from;
         let to = req.to;
 
+        debug!(
+            self.logger,
+            "Received forward stop sign message from {}", from
+        );
+
         let ss = parse_utils::get_stopsign_struct(req.ss.unwrap());
         let msg: PaxosMsg<KeyValue> = PaxosMsg::ForwardStopSign(ss);
         let paxos_msg = PaxosMessage { from, to, msg };
@@ -378,6 +430,11 @@ impl<T: OmnipaxosTransport + Send + Sync + 'static> OmniPaxosProtocol
         let to = req.to;
 
         let round = req.round;
+
+        debug!(
+            self.logger,
+            "Received hearbeat request message from {} round {}", from, round
+        );
 
         let heartbeat_request = HeartbeatRequest { round };
         let msg = HeartbeatMsg::Request(heartbeat_request);
@@ -399,6 +456,11 @@ impl<T: OmnipaxosTransport + Send + Sync + 'static> OmniPaxosProtocol
         let round = req.round;
         let ballot = parse_utils::get_ballot_struct(req.ballot.unwrap());
         let quorum_connected = req.quorum_connected;
+
+        debug!(
+            self.logger,
+            "Received hearbeat reply message from {} round {}", from, round
+        );
 
         let heartbeat_reply = HeartbeatReply {
             round,

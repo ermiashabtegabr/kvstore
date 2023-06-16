@@ -1,9 +1,24 @@
+server: v1
+kind: Service
+metadata:
+  namespace: kvstore-k8s
+  name: kvstore-service
+spec:
+  clusterIP: None
+  selector:
+    app: kvstore
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+---
 apiVersion: apps/v1
 kind: Statefulset
 metadata:
   namespace: kvstore-k8s
   name: kvstore-statefulset
 spec:
+  serviceName: kvstore
   replicas: 3
   selector:
     matchLabels:
@@ -17,4 +32,7 @@ spec:
       - name: kvstore
         image: ermiashabtegabr/kvstore:latest
         ports:
-        - containerPort: 8080
+        - name: rpc 
+          containerPort: 5000
+        - name: api
+          containerPort: 8080
