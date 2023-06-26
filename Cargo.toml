@@ -16,6 +16,7 @@ crossbeam = "0.8.2"
 crossbeam-channel = "0.5.8"
 
 derivative = "2.2.0"
+domain = "0.8.0"
 
 femme = "2.2.1"
 
@@ -36,6 +37,8 @@ structopt = "0.3.26"
 
 tide = "0.16.0"
 tokio = { version = "1", features = ["full"] }
+trust-dns-resolver = "0.22.0"
+trust-dns-proto = "0.22.0"
 
 [build-dependencies]
 tonic-build = "0.8"

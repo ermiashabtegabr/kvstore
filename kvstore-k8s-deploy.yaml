@@ -1,38 +1,134 @@
-server: v1
+# apiVersion: v1
+# kind: Namespace
+# metadata:
+#   name: kvstore-k8s
+
+---
+
+apiVersion: v1
 kind: Service
 metadata:
   namespace: kvstore-k8s
-  name: kvstore-service
+  name: kvstore-hs
+  labels:
+    app: kvstore
+    kvstore-cluster/id: kvstore
+  annotations:
+      service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
 spec:
+  publishNotReadyAddresses: true
+  ports:
+  - name: grpc
+    port: 5000
   clusterIP: None
   selector:
     app: kvstore
-  ports:
-    - protocol: TCP
-      port: 8080
-      targetPort: 8080
+    kvstore-cluster/id: kvstore
+
 ---
-apiVersion: apps/v1
-kind: Statefulset
+
+apiVersion: v1
+kind: Service
 metadata:
   namespace: kvstore-k8s
-  name: kvstore-statefulset
+  name: kvstore-cs
+  labels:
+    app: kvstore
+    kvstore-cluster/id: kvstore
 spec:
-  serviceName: kvstore
+  ports:
+  - name: client 
+    port: 8080
+  selector:
+    app: kvstore
+    kvstore-cluster/id: kvstore
+  type: LoadBalancer
+
+---
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  namespace: &namespace kvstore-k8s
+  name: &clusterId kvstore
+  labels:
+    app: kvstore
+    kvstore-cluster/id: *clusterId
+spec:
+  serviceName: kvstore-hs
   replicas: 3
   selector:
     matchLabels:
       app: kvstore
+      kvstore-cluster/id: *clusterId
+
   template:
     metadata:
+      namespace: *namespace
+      name: node
       labels:
         app: kvstore
+        kvstore-cluster/id: *clusterId
+
     spec:
       containers:
       - name: kvstore
         image: ermiashabtegabr/kvstore:latest
+        imagePullPolicy: Always
+
         ports:
-        - name: rpc 
-          containerPort: 5000
-        - name: api
+        - name: client
           containerPort: 8080
+          protocol: TCP
+        - name: grpc 
+          containerPort: 5000
+          protocol: TCP
+
+        env:
+        - name: 'RUNNING_IN_K8S'
+          value: "true"
+        - name: 'CLUSTER_CONFIG_PATH'
+          value: &clusterConfigPath '/node/data/cluster'
+        - name: 'SERVICE_NAME'
+          value: kvstore-hs
+
+        volumeMounts:
+        - name: &storage storage
+          mountPath: '/node/data/storage'
+        - name: &cluster cluster
+          mountPath: *clusterConfigPath
+          readOnly: true
+
+      volumes:
+      - name: *cluster
+        downwardAPI:
+          items:
+          - path: "labels"
+            fieldRef:
+              fieldPath: metadata.name
+          - path: "k8s-ns"
+            fieldRef:
+              fieldPath: metadata.namespace
+
+      # affinity:
+      #   podAntiAffinity:
+      #     requiredDuringSchedulingIgnoredDuringExecution:
+      #     - labelSelector:
+      #         matchExpressions:
+      #         - key: app
+      #           operator: In
+      #           values:
+      #           - kvstore
+      #       topologyKey: "kubernetes.io/hostname"
+
+  volumeClaimTemplates:
+  - metadata:
+      name: *storage
+      namespace: *namespace
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      # storageClassName: do-block-storage
+      storageClassName: standard
+      resources:
+        requests:
+          storage: 1Gi

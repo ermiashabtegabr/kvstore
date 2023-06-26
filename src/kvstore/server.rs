@@ -31,7 +31,7 @@ impl<T: OmnipaxosTransport + Send + Sync> OmniPaxosServer<T> {
             ..Default::default()
         };
 
-        let my_path = format!("./storage/node-{}", pid);
+        let my_path = format!("/node/storage/node-{}", pid);
         let my_log_opts = LogOptions::new(my_path.clone());
         let my_sled_opts = Config::default().path(my_path.clone());
 
