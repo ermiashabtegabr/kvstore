@@ -53,7 +53,14 @@ impl OmnipaxosTransport for RpcTransport {
                 let pool = self.connections.clone();
                 let logger = self.logger.clone();
                 tokio::task::spawn(async move {
-                    let mut client = pool.connection(peer).await;
+                    while let Err(_) = pool.connection(&peer).await {
+                        warn!(logger, "Failed to connect to peer {}", to);
+                    }
+                    let mut client = pool
+                        .connection(&peer)
+                        .await
+                        .map_err(|_| warn!(logger, "Failed to find peer {}", to))
+                        .unwrap();
                     let request = tonic::Request::new(request);
                     let response = client.conn.prepare_request(request).await;
 
@@ -85,7 +92,15 @@ impl OmnipaxosTransport for RpcTransport {
                 let pool = self.connections.clone();
                 let logger = self.logger.clone();
                 tokio::task::spawn(async move {
-                    let mut client = pool.connection(peer).await;
+                    while let Err(_) = pool.connection(&peer).await {
+                        warn!(logger, "Failed to connect to peer {}", to);
+                    }
+
+                    let mut client = pool
+                        .connection(&peer)
+                        .await
+                        .map_err(|_| warn!(logger, "Failed to find peer {}", to))
+                        .unwrap();
                     let request = tonic::Request::new(request);
                     match client.conn.prepare_message(request).await {
                         Ok(_) => {}
@@ -131,7 +146,15 @@ impl OmnipaxosTransport for RpcTransport {
                 let pool = self.connections.clone();
                 let logger = self.logger.clone();
                 tokio::task::spawn(async move {
-                    let mut client = pool.connection(peer).await;
+                    while let Err(_) = pool.connection(&peer).await {
+                        warn!(logger, "Failed to connect to peer {}", to);
+                    }
+
+                    let mut client = pool
+                        .connection(&peer)
+                        .await
+                        .map_err(|_| warn!(logger, "Failed to find peer {}", to))
+                        .unwrap();
                     let request = tonic::Request::new(request);
                     match client.conn.promise_message(request).await {
                         Ok(_) => {}
@@ -177,7 +200,15 @@ impl OmnipaxosTransport for RpcTransport {
                 let pool = self.connections.clone();
                 let logger = self.logger.clone();
                 tokio::task::spawn(async move {
-                    let mut client = pool.connection(peer).await;
+                    while let Err(_) = pool.connection(&peer).await {
+                        warn!(logger, "Failed to connect to peer {}", to);
+                    }
+
+                    let mut client = pool
+                        .connection(&peer)
+                        .await
+                        .map_err(|_| warn!(logger, "Failed to find peer {}", to))
+                        .unwrap();
                     let request = tonic::Request::new(request);
                     match client.conn.accept_sync_message(request).await {
                         Ok(_) => {}
@@ -211,7 +242,15 @@ impl OmnipaxosTransport for RpcTransport {
                 let pool = self.connections.clone();
                 let logger = self.logger.clone();
                 tokio::task::spawn(async move {
-                    let mut client = pool.connection(peer).await;
+                    while let Err(_) = pool.connection(&peer).await {
+                        warn!(logger, "Failed to connect to peer {}", to);
+                    }
+
+                    let mut client = pool
+                        .connection(&peer)
+                        .await
+                        .map_err(|_| warn!(logger, "Failed to find peer {}", to))
+                        .unwrap();
                     let request = tonic::Request::new(request);
                     match client.conn.accept_decide_message(request).await {
                         Ok(_) => {}
@@ -237,7 +276,15 @@ impl OmnipaxosTransport for RpcTransport {
                 let pool = self.connections.clone();
                 let logger = self.logger.clone();
                 tokio::task::spawn(async move {
-                    let mut client = pool.connection(peer).await;
+                    while let Err(_) = pool.connection(&peer).await {
+                        warn!(logger, "Failed to connect to peer {}", to);
+                    }
+
+                    let mut client = pool
+                        .connection(&peer)
+                        .await
+                        .map_err(|_| warn!(logger, "Failed to find peer {}", to))
+                        .unwrap();
                     let request = tonic::Request::new(request);
                     match client.conn.accepted_message(request).await {
                         Ok(_) => {}
@@ -265,7 +312,15 @@ impl OmnipaxosTransport for RpcTransport {
                 let pool = self.connections.clone();
                 let logger = self.logger.clone();
                 tokio::task::spawn(async move {
-                    let mut client = pool.connection(peer).await;
+                    while let Err(_) = pool.connection(&peer).await {
+                        warn!(logger, "Failed to connect to peer {}", to);
+                    }
+
+                    let mut client = pool
+                        .connection(&peer)
+                        .await
+                        .map_err(|_| warn!(logger, "Failed to find peer {}", to))
+                        .unwrap();
                     let request = tonic::Request::new(request);
                     match client.conn.decide_message(request).await {
                         Ok(_) => {}
@@ -292,7 +347,15 @@ impl OmnipaxosTransport for RpcTransport {
                 let pool = self.connections.clone();
                 let logger = self.logger.clone();
                 tokio::task::spawn(async move {
-                    let mut client = pool.connection(peer).await;
+                    while let Err(_) = pool.connection(&peer).await {
+                        warn!(logger, "Failed to connect to peer {}", to);
+                    }
+
+                    let mut client = pool
+                        .connection(&peer)
+                        .await
+                        .map_err(|_| warn!(logger, "Failed to find peer {}", to))
+                        .unwrap();
                     let request = tonic::Request::new(request);
                     match client.conn.proposal_forward_message(request).await {
                         Ok(_) => {}
@@ -316,7 +379,15 @@ impl OmnipaxosTransport for RpcTransport {
                 let pool = self.connections.clone();
                 let logger = self.logger.clone();
                 tokio::task::spawn(async move {
-                    let mut client = pool.connection(peer).await;
+                    while let Err(_) = pool.connection(&peer).await {
+                        warn!(logger, "Failed to connect to peer {}", to);
+                    }
+
+                    let mut client = pool
+                        .connection(&peer)
+                        .await
+                        .map_err(|_| warn!(logger, "Failed to find peer {}", to))
+                        .unwrap();
                     let request = tonic::Request::new(request);
                     match client.conn.compaction_message(request).await {
                         Ok(_) => {}
@@ -344,7 +415,15 @@ impl OmnipaxosTransport for RpcTransport {
                 let pool = self.connections.clone();
                 let logger = self.logger.clone();
                 tokio::task::spawn(async move {
-                    let mut client = pool.connection(peer).await;
+                    while let Err(_) = pool.connection(&peer).await {
+                        warn!(logger, "Failed to connect to peer {}", to);
+                    }
+
+                    let mut client = pool
+                        .connection(&peer)
+                        .await
+                        .map_err(|_| warn!(logger, "Failed to find peer {}", to))
+                        .unwrap();
                     let request = tonic::Request::new(request);
                     match client.conn.accept_stop_sign_message(request).await {
                         Ok(_) => {}
@@ -364,7 +443,15 @@ impl OmnipaxosTransport for RpcTransport {
                 let pool = self.connections.clone();
                 let logger = self.logger.clone();
                 tokio::task::spawn(async move {
-                    let mut client = pool.connection(peer).await;
+                    while let Err(_) = pool.connection(&peer).await {
+                        warn!(logger, "Failed to connect to peer {}", to);
+                    }
+
+                    let mut client = pool
+                        .connection(&peer)
+                        .await
+                        .map_err(|_| warn!(logger, "Failed to find peer {}", to))
+                        .unwrap();
                     let request = tonic::Request::new(request);
                     match client.conn.accepted_stop_sign_message(request).await {
                         Ok(_) => {}
@@ -385,7 +472,15 @@ impl OmnipaxosTransport for RpcTransport {
                 let pool = self.connections.clone();
                 let logger = self.logger.clone();
                 tokio::task::spawn(async move {
-                    let mut client = pool.connection(peer).await;
+                    while let Err(_) = pool.connection(&peer).await {
+                        warn!(logger, "Failed to connect to peer {}", to);
+                    }
+
+                    let mut client = pool
+                        .connection(&peer)
+                        .await
+                        .map_err(|_| warn!(logger, "Failed to find peer {}", to))
+                        .unwrap();
                     let request = tonic::Request::new(request);
                     match client.conn.decide_stop_sign_message(request).await {
                         Ok(_) => {}
@@ -405,7 +500,15 @@ impl OmnipaxosTransport for RpcTransport {
                 let pool = self.connections.clone();
                 let logger = self.logger.clone();
                 tokio::task::spawn(async move {
-                    let mut client = pool.connection(peer).await;
+                    while let Err(_) = pool.connection(&peer).await {
+                        warn!(logger, "Failed to connect to peer {}", to);
+                    }
+
+                    let mut client = pool
+                        .connection(&peer)
+                        .await
+                        .map_err(|_| warn!(logger, "Failed to connect to peer {}", to))
+                        .unwrap();
                     let request = tonic::Request::new(request);
                     match client.conn.forward_stop_sign_message(request).await {
                         Ok(_) => {}
@@ -429,7 +532,15 @@ impl OmnipaxosTransport for RpcTransport {
                 let pool = self.connections.clone();
                 let logger = self.logger.clone();
                 tokio::task::spawn(async move {
-                    let mut client = pool.connection(peer).await;
+                    while let Err(_) = pool.connection(&peer).await {
+                        warn!(logger, "Failed to connect to peer {}", to);
+                    }
+
+                    let mut client = pool
+                        .connection(&peer)
+                        .await
+                        .map_err(|_| warn!(logger, "failed to find peer {}", to))
+                        .unwrap();
                     let request = tonic::Request::new(request);
                     match client.conn.heartbeat_request_message(request).await {
                         Ok(_) => {}
@@ -456,7 +567,15 @@ impl OmnipaxosTransport for RpcTransport {
                 let pool = self.connections.clone();
                 let logger = self.logger.clone();
                 tokio::task::spawn(async move {
-                    let mut client = pool.connection(peer).await;
+                    while let Err(_) = pool.connection(&peer).await {
+                        warn!(logger, "Failed to connect to peer {}", to);
+                    }
+
+                    let mut client = pool
+                        .connection(&peer)
+                        .await
+                        .map_err(|_| warn!(logger, "Failed to find peer {}", to))
+                        .unwrap();
                     let request = tonic::Request::new(request);
                     match client.conn.heartbeat_reply_message(request).await {
                         Ok(_) => {}

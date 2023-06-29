@@ -1,31 +1,29 @@
+#![allow(dead_code, unused_imports, unused_variables)]
 mod cluster;
+mod error;
 mod grpc;
 mod kvstore;
 mod logger;
 
 use anyhow::Result;
-use async_std::prelude::FutureExt;
-use cluster::peer_discovery;
 use grpc::client::{OmnipaxosTransport, RpcTransport};
 use grpc::omnipaxos_grpc::omni_paxos_protocol_server::OmniPaxosProtocolServer;
 use grpc::server::OmniPaxosProtocolService;
-use kvstore::kv::KeyValue;
-use kvstore::server::OmniPaxosServer;
+use kvstore::{kv::KeyValue, server::OmniPaxosServer};
+use regex::Regex;
 use serde::Deserialize;
 use std::sync::Arc;
-use std::{thread, time};
 use structopt::StructOpt;
 use tide::Request;
-use tokio::runtime::Runtime;
 use tonic::transport::Server;
 
 #[derive(StructOpt, Debug)]
 #[structopt(name = "kvstore")]
 struct Opt {
     #[structopt(short, long)]
-    id: usize,
-    #[structopt(short, long, required = false)]
-    peers: Vec<usize>,
+    node: String,
+    #[structopt(short, long)]
+    replicas: usize,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -33,75 +31,88 @@ struct Key {
     pub key: String,
 }
 
-fn node_authority(id: usize) -> (&'static str, u16) {
-    let host = "0.0.0.0";
-    let port = 50000 + (id as u16);
+fn get_node_id(node_name: String) -> u32 {
+    let re = Regex::new(r"kvstore-(\d{1})").expect("Failed to create regex expression");
+    let caps = re
+        .captures(&node_name)
+        .expect("Failed to capture node name");
+    caps[1].parse::<u32>().expect("Failed to parse node id") + 1
+}
+
+fn node_authority() -> (&'static str, u16) {
+    let host = "kvstore-hs.kvstore-k8s.svc.cluster.local";
+    let port = 5000;
     (host, port)
 }
 
 fn node_rpc_addr(id: usize) -> String {
-    // Get the id of the node
-    // kv-node-{id}.kvstore-hs.kvstore-k8s.svc.cluster.local
-    let (host, port) = node_authority(id);
-    format!("http://{}:{}", host, port)
+    let (host, port) = node_authority();
+    format!("http://kvstore-{}.{}:{}", id - 1, host, port)
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // let mut opt = Opt::from_args();
-    // let peers = opt.peers.iter_mut().map(|peer| *peer as u64).collect();
-    // let (host, port) = node_authority(opt.id);
-    // let rpc_listen_addr = format!("{}:{}", host, port).parse().unwrap();
-    // let transport = RpcTransport::new(Box::new(node_rpc_addr));
-    // let omnipaxos_server = OmniPaxosServer::new(opt.id as u64, peers, transport);
-    // let omnipaxos_server = Arc::new(omnipaxos_server);
-    //
-    // if opt.id == 1 {
-    //     let omnipaxos_server = omnipaxos_server.clone();
-    //     tokio::task::spawn(async move {
-    //         femme::start();
-    //         let mut http_server = tide::with_state(omnipaxos_server);
-    //         http_server.with(tide::log::LogMiddleware::new());
-    //         http_server.at("/").get(|_| async { Ok("PING") });
-    //         http_server.at("/set").post(set_value);
-    //         http_server.at("/get").get(get_value);
-    //         http_server
-    //             .listen("0.0.0.0:8080")
-    //             .await
-    //             .expect("Failed to set listener");
-    //     });
-    // }
-    //
-    // let event_loop = {
-    //     let omnipaxos_server = omnipaxos_server.clone();
-    //     tokio::task::spawn(async move {
-    //         omnipaxos_server.start_message_event_loop().await;
-    //     })
-    // };
-    //
-    // let grpc = OmniPaxosProtocolService::new(omnipaxos_server);
-    // let grpc_server = tokio::task::spawn(async move {
-    //     let ret = Server::builder()
-    //         .add_service(OmniPaxosProtocolServer::new(grpc))
-    //         .serve(rpc_listen_addr)
-    //         .await;
-    //     ret
-    // });
-    //
-    // let _results = tokio::try_join!(grpc_server, event_loop)?;
+    let opt = Opt::from_args();
+    let node_id = get_node_id(opt.node);
+    let peers = (1..opt.replicas + 1)
+        .collect::<Vec<usize>>()
+        .iter()
+        .map(|i| *i as u64)
+        .filter(|i| *i != node_id as u64)
+        .collect();
+    let rpc_listen_addr = format!("0.0.0.0:5000")
+        .parse()
+        .expect("Failed to parse socket address");
 
-    use std::thread;
+    println!("**** lol starting node {node_id} - peers {peers:?} ****");
+    let transport = RpcTransport::new(Box::new(node_rpc_addr));
+    let omnipaxos_server = OmniPaxosServer::new(node_id as u64, peers, transport);
+    let omnipaxos_server = Arc::new(omnipaxos_server);
 
-    let runtime = Runtime::new().expect("Failed to create tokio runtime");
+    let client_server = {
+        let omnipaxos_server = omnipaxos_server.clone();
+        tokio::task::spawn(async move {
+            femme::start();
+            let mut http_server = tide::with_state(omnipaxos_server);
+            http_server.with(tide::log::LogMiddleware::new());
+            http_server.at("/").get(|_| async { Ok("Hello") });
+            http_server
+                .at("/healthz")
+                .get(|_| async { Ok("Health check!") });
+            http_server.at("/set").post(set_value);
+            http_server.at("/get").get(get_value);
+            http_server
+                .listen("0.0.0.0:8080")
+                .await
+                .expect("Failed to set listener");
+        })
+    };
 
-    runtime.spawn(async {
-        println!("---- before peer discovery ----");
-        peer_discovery::srv_lookup(String::new()).await;
-        println!("---- after peer discovery ----");
+    let event_loop = {
+        let omnipaxos_server = omnipaxos_server.clone();
+        tokio::task::spawn(async move {
+            omnipaxos_server.start_message_event_loop().await;
+        })
+    };
+
+    let grpc = OmniPaxosProtocolService::new(omnipaxos_server);
+    let grpc_server = tokio::task::spawn(async move {
+        let ret = Server::builder()
+            .add_service(OmniPaxosProtocolServer::new(grpc))
+            .serve(rpc_listen_addr)
+            .await;
+        ret
     });
 
-    let zzzz = time::Duration::from_secs(6000);
-    thread::sleep(zzzz);
+    let _results = tokio::try_join!(client_server)?;
+
+    // let runtime = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
+    //
+    // let peer_discovery = runtime.spawn(async {
+    //     cluster::peer_discovery::find_peers(String::new()).await;
+    // });
+    //
+    // std::thread::sleep(std::time::Duration::from_secs(1000));
 
     Ok(())
 }
@@ -124,7 +135,7 @@ where
 {
     let key: Key = req.query()?;
     let omnipaxos_server = req.state();
-    let value = omnipaxos_server.handle_get(&key.key).unwrap();
+    let value = omnipaxos_server.handle_get(&key.key);
 
-    Ok(format!("[{}] -> [{}]", key.key, value))
+    Ok(format!("[{}] -> [{:?}]", key.key, value))
 }

@@ -13,13 +13,11 @@ metadata:
   labels:
     app: kvstore
     kvstore-cluster/id: kvstore
-  annotations:
-      service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
 spec:
   publishNotReadyAddresses: true
-  ports:
-  - name: grpc
-    port: 5000
+  ports: 
+  - port: 50000
+    name: grpc
   clusterIP: None
   selector:
     app: kvstore
@@ -37,8 +35,8 @@ metadata:
     kvstore-cluster/id: kvstore
 spec:
   ports:
-  - name: client 
-    port: 8080
+  - port: 8080
+    name: client 
   selector:
     app: kvstore
     kvstore-cluster/id: kvstore
@@ -57,6 +55,7 @@ metadata:
 spec:
   serviceName: kvstore-hs
   replicas: 3
+  podManagementPolicy: Parallel
   selector:
     matchLabels:
       app: kvstore
@@ -77,20 +76,26 @@ spec:
         imagePullPolicy: Always
 
         ports:
-        - name: client
-          containerPort: 8080
-          protocol: TCP
-        - name: grpc 
-          containerPort: 5000
-          protocol: TCP
+        - containerPort: 8080 
+          name: client
+        - containerPort: 50000
+          name: grpc 
+
+        readinessProbe:
+          exec:
+            command:
+            - sh
+            - c
+            - 'sleep 5'
+          initialDelaySeconds: 10
 
         env:
-        - name: 'RUNNING_IN_K8S'
-          value: "true"
         - name: 'CLUSTER_CONFIG_PATH'
           value: &clusterConfigPath '/node/data/cluster'
-        - name: 'SERVICE_NAME'
-          value: kvstore-hs
+        - name: 'NODE_ID'
+          valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
 
         volumeMounts:
         - name: &storage storage

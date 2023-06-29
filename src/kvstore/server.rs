@@ -31,7 +31,7 @@ impl<T: OmnipaxosTransport + Send + Sync> OmniPaxosServer<T> {
             ..Default::default()
         };
 
-        let my_path = format!("/node/storage/node-{}", pid);
+        let my_path = format!("storage/node-{}", pid);
         let my_log_opts = LogOptions::new(my_path.clone());
         let my_sled_opts = Config::default().path(my_path.clone());
 
@@ -64,12 +64,7 @@ impl<T: OmnipaxosTransport + Send + Sync> OmniPaxosServer<T> {
 
     pub fn handle_get(&self, key: &String) -> Option<u64> {
         info!(self.logger, "Replica {} received get request", self.pid);
-        let committed_entries = self
-            .omnipaxos
-            .lock()
-            .unwrap()
-            .read_decided_suffix(0)
-            .expect("Failed to read expected entries");
+        let committed_entries = self.omnipaxos.lock().unwrap().read_decided_suffix(0)?;
 
         for ent in committed_entries {
             if let LogEntry::Decided(kv) = ent {
@@ -79,7 +74,7 @@ impl<T: OmnipaxosTransport + Send + Sync> OmniPaxosServer<T> {
             }
         }
 
-        Some(0)
+        None
     }
 
     pub async fn send_outgoing_msgs(&self) {
@@ -109,7 +104,12 @@ impl<T: OmnipaxosTransport + Send + Sync> OmniPaxosServer<T> {
     }
 
     pub fn receive_message(&self, message: Message<KeyValue>) {
-        info!(self.logger, "Replica {} received message", self.pid);
+        info!(
+            self.logger,
+            "Replica {} received message from {}",
+            self.pid,
+            message.get_sender()
+        );
         self.omnipaxos.lock().unwrap().handle_incoming(message)
     }
 }

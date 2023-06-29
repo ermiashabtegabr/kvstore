@@ -5,6 +5,7 @@ use std::sync::Arc;
 use tonic::transport::Channel;
 
 use super::omnipaxos_grpc::omni_paxos_protocol_client::OmniPaxosProtocolClient;
+use crate::error;
 
 #[derive(Debug)]
 pub struct ConnectionPool {
@@ -29,13 +30,16 @@ impl ConnectionPool {
         })
     }
 
-    async fn connection<S: ToString>(&self, addr: S) -> OmniPaxosProtocolClient<Channel> {
+    async fn connection(
+        &self,
+        addr: String,
+    ) -> Result<OmniPaxosProtocolClient<Channel>, error::Error> {
         let addr = addr.to_string();
         match self.connections.pop() {
-            Some(x) => x,
+            Some(x) => Ok(x),
             None => OmniPaxosProtocolClient::connect(addr)
                 .await
-                .expect("Failed to connect"),
+                .map_err(|err| error::Error::Connection(err)),
         }
     }
 
@@ -56,16 +60,18 @@ impl Connections {
         }
     }
 
-    pub async fn connection<S: ToString>(&self, addr: S) -> Connection {
+    pub async fn connection<S: ToString>(&self, addr: &S) -> Result<Connection, error::Error> {
         let mut conns = self.connection_map.lock().await;
         let addr = addr.to_string();
         let pool = conns
             .entry(addr.clone())
             .or_insert_with(ConnectionPool::new);
-
-        Connection {
-            conn: pool.connection(addr).await,
+        let connection = pool.connection(addr).await?;
+        let connection = Connection {
+            conn: connection,
             pool: pool.clone(),
-        }
+        };
+
+        Ok(connection)
     }
 }
