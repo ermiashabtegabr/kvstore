@@ -64,12 +64,11 @@ async fn main() -> Result<()> {
         .parse()
         .expect("Failed to parse socket address");
 
-    println!("**** lol starting node {node_id} - peers {peers:?} ****");
     let transport = RpcTransport::new(Box::new(node_rpc_addr));
     let omnipaxos_server = OmniPaxosServer::new(node_id as u64, peers, transport);
     let omnipaxos_server = Arc::new(omnipaxos_server);
 
-    let client_server = {
+    let http_server = {
         let omnipaxos_server = omnipaxos_server.clone();
         tokio::task::spawn(async move {
             femme::start();
@@ -104,7 +103,7 @@ async fn main() -> Result<()> {
         ret
     });
 
-    let _results = tokio::try_join!(client_server)?;
+    let _results = tokio::try_join!(http_server, event_loop, grpc_server)?;
 
     // let runtime = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
     //
