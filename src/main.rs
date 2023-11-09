@@ -36,18 +36,21 @@ fn get_node_id(node_name: String) -> u32 {
     let caps = re
         .captures(&node_name)
         .expect("Failed to capture node name");
-    caps[1].parse::<u32>().expect("Failed to parse node id") + 1
+    caps[1].parse::<u32>().expect("Failed to parse node id")
 }
 
 fn node_authority() -> (&'static str, u16) {
-    let host = "kvstore-hs.kvstore-k8s.svc.cluster.local";
-    let port = 5000;
+    // let host = "kvstore-hs.kvstore-k8s.svc.cluster.local";
+    let host = "127.0.0.1";
+    let port = 50000;
     (host, port)
 }
 
 fn node_rpc_addr(id: usize) -> String {
     let (host, port) = node_authority();
-    format!("http://kvstore-{}.{}:{}", id - 1, host, port)
+    // format!("http://kvstore-{}.{}:{}", id - 1, host, port)
+    let port = port + id as u16;
+    format!("http://{}:{}", host, port)
 }
 
 #[tokio::main]
@@ -60,32 +63,37 @@ async fn main() -> Result<()> {
         .map(|i| *i as u64)
         .filter(|i| *i != node_id as u64)
         .collect();
-    let rpc_listen_addr = format!("0.0.0.0:5000")
+    let rpc_listen_addr = format!("127.0.0.1:5000{}", node_id)
         .parse()
         .expect("Failed to parse socket address");
+
+    println!("node_id {node_id}");
+    println!("peers -> {:?}", peers);
 
     let transport = RpcTransport::new(Box::new(node_rpc_addr));
     let omnipaxos_server = OmniPaxosServer::new(node_id as u64, peers, transport);
     let omnipaxos_server = Arc::new(omnipaxos_server);
 
-    let http_server = {
-        let omnipaxos_server = omnipaxos_server.clone();
-        tokio::task::spawn(async move {
-            femme::start();
-            let mut http_server = tide::with_state(omnipaxos_server);
-            http_server.with(tide::log::LogMiddleware::new());
-            http_server.at("/").get(|_| async { Ok("Hello") });
-            http_server
-                .at("/healthz")
-                .get(|_| async { Ok("Health check!") });
-            http_server.at("/set").post(set_value);
-            http_server.at("/get").get(get_value);
-            http_server
-                .listen("0.0.0.0:8080")
-                .await
-                .expect("Failed to set listener");
-        })
-    };
+    if node_id == 1 {
+        let _http_server = {
+            let omnipaxos_server = omnipaxos_server.clone();
+            tokio::task::spawn(async move {
+                femme::start();
+                let mut http_server = tide::with_state(omnipaxos_server);
+                http_server.with(tide::log::LogMiddleware::new());
+                http_server.at("/").get(|_| async { Ok("Hello") });
+                http_server
+                    .at("/healthz")
+                    .get(|_| async { Ok("Health check!") });
+                http_server.at("/set").post(set_value);
+                http_server.at("/get").get(get_value);
+                http_server
+                    .listen("0.0.0.0:8080")
+                    .await
+                    .expect("Failed to set listener");
+            })
+        };
+    }
 
     let event_loop = {
         let omnipaxos_server = omnipaxos_server.clone();
@@ -103,7 +111,7 @@ async fn main() -> Result<()> {
         ret
     });
 
-    let _results = tokio::try_join!(http_server, event_loop, grpc_server)?;
+    let _results = tokio::try_join!(event_loop, grpc_server)?;
 
     // let runtime = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
     //
